@@ -1,0 +1,207 @@
+/* ============================================================
+   Resume Buddy — Global Styles
+   Tokyo Night Dark Theme — all values driven by CSS custom properties.
+   No icon libraries. No CSS frameworks.
+   ============================================================ */
+
+/* ---------- Tokyo Night Color Palette ---------- */
+:root {
+  /* Background layers (darkest → lightest) */
+  --color-bg-deep:      #16161e; /* title bar, status bar chrome */
+  --color-bg-base:      #1a1b26; /* main background */
+  --color-bg-elevated:  #24283b; /* panels, cards */
+  --color-bg-overlay:   #2a2e45; /* hover states, selection */
+
+  /* Text */
+  --color-fg-primary:   #a9b1d6; /* body text */
+  --color-fg-secondary: #787c99; /* dimmed / labels */
+  --color-fg-muted:     #51597d; /* hints, placeholders */
+  --color-fg-bright:    #c0caf5; /* headings, strong emphasis */
+
+  /* Accent colors */
+  --color-blue:   #7aa2f7; /* primary action, links */
+  --color-purple: #bb9af7; /* secondary accent, ATS keywords */
+  --color-cyan:   #0db9d7; /* info, types */
+  --color-green:  #9ece6a; /* success */
+  --color-orange: #ff9e64; /* warnings */
+  --color-red:    #f7768e; /* errors, destructive */
+  --color-yellow: #e0af68; /* highlights */
+
+  /* Borders */
+  --color-border:       #2d3149;
+  --color-border-focus: #7aa2f7;
+
+  /* Semantic aliases */
+  --color-primary: var(--color-blue);
+  --color-success: var(--color-green);
+  --color-warning: var(--color-orange);
+  --color-error:   var(--color-red);
+  --color-info:    var(--color-cyan);
+
+  /* ---------- Typography ---------- */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
+
+  --font-size-xs:   0.75rem;   /* 12px */
+  --font-size-sm:   0.875rem;  /* 14px */
+  --font-size-base: 1rem;      /* 16px */
+  --font-size-lg:   1.125rem;  /* 18px */
+  --font-size-xl:   1.25rem;   /* 20px */
+  --font-size-2xl:  1.5rem;    /* 24px */
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold:   700;
+
+  --line-height-tight:   1.25;
+  --line-height-base:    1.5;
+  --line-height-relaxed: 1.75;
+
+  /* ---------- Spacing (8px grid) ---------- */
+  --space-1:  0.25rem;  /*  4px */
+  --space-2:  0.5rem;   /*  8px */
+  --space-3:  0.75rem;  /* 12px */
+  --space-4:  1rem;     /* 16px */
+  --space-5:  1.25rem;  /* 20px */
+  --space-6:  1.5rem;   /* 24px */
+  --space-8:  2rem;     /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+
+  /* ---------- Radius ---------- */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* ---------- Transitions ---------- */
+  --transition-fast: 80ms ease;
+  --transition-base: 150ms ease;
+
+  /* ---------- Layout ---------- */
+  --header-height:  52px;
+  --tab-bar-height: 44px;
+}
+
+/* ---------- Reset ---------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-base);
+  color: var(--color-fg-primary);
+  background-color: var(--color-bg-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent accidental text selection on UI chrome */
+  user-select: none;
+}
+
+/* Allow text selection in content areas */
+p, h1, h2, h3, h4, h5, h6,
+pre, code, textarea, input,
+.allow-select {
+  user-select: text;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+a:hover { text-decoration: underline; }
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+input, textarea, select {
+  font-family: inherit;
+}
+
+/* ---------- Scrollbars — Tokyo Night style ---------- */
+::-webkit-scrollbar        { width: 8px; height: 8px; }
+::-webkit-scrollbar-track  { background: var(--color-bg-deep); }
+::-webkit-scrollbar-thumb  { background: var(--color-bg-overlay); border-radius: var(--radius-sm); }
+::-webkit-scrollbar-thumb:hover { background: var(--color-fg-muted); }
+
+/* ---------- Focus ring ---------- */
+:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- App Shell ---------- */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--color-bg-base);
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--header-height);
+  padding: 0 var(--space-6);
+  background-color: var(--color-bg-deep);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  /* Draggable title bar for frameless Electron window */
+  -webkit-app-region: drag;
+}
+
+/* Buttons / inputs inside draggable regions must opt out */
+.app-header button,
+.app-header input {
+  -webkit-app-region: no-drag;
+}
+
+.app-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-fg-bright);
+  letter-spacing: -0.02em;
+}
+
+.backend-status {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-xl);
+  border: 1px solid currentColor;
+  -webkit-app-region: no-drag;
+}
+.backend-status--checking { color: var(--color-fg-muted); border-color: var(--color-border); }
+.backend-status--ok       { color: var(--color-success); }
+.backend-status--error    { color: var(--color-error); }
+
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-8);
+  max-width: 860px;
+  width: 100%;
+  margin: 0 auto;
+}

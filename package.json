@@ -1,0 +1,31 @@
+{
+  "name": "resume-buddy",
+  "version": "0.1.0",
+  "description": "AI-powered resume and cover letter customizer",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "concurrently --kill-others --names \"FLASK,ELECTRON\" --prefix-colors \"cyan,magenta\" \"python -m backend.app\" \"electron-vite dev\"",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.0"
+  }
+}

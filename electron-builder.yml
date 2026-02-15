@@ -1,0 +1,37 @@
+# electron-builder configuration — Phase 5 stub
+# Full packaging setup to be completed in Phase 5.
+
+appId: com.resumebuddy
+productName: Resume Buddy
+copyright: Copyright 2026
+
+directories:
+  buildResources: resources
+  output: release
+
+files:
+  - out/**/*
+  - resources/**/*
+
+# NOTE: Python backend is NOT bundled in Phases 0-2.
+# In Phase 5, embed a PyInstaller-frozen Python executable
+# and spawn it from the Electron main process on startup.
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/icon.ico
+
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  icon: resources/icon.icns
+  category: public.app-category.productivity
+
+linux:
+  target:
+    - target: AppImage
+  icon: resources/icon.png
+  category: Office
