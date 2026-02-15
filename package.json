@@ -4,7 +4,7 @@
   "description": "AI-powered resume and cover letter customizer",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev": "concurrently --kill-others --names \"FLASK,ELECTRON\" --prefix-colors \"cyan,magenta\" \"python -m backend.app\" \"electron-vite dev\"",
+    "dev": "concurrently --kill-others --names \"FLASK,ELECTRON\" --prefix-colors \"cyan,magenta\" \".venv/Scripts/python -m backend.app\" \"electron-vite dev\"",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"

@@ -27,13 +27,13 @@ Build a local desktop application that customizes resumes and cover letters base
 - [x] Dev workflow: `concurrently` script to run Flask + Electron together (`npm run dev`).
 - [x] IPC strategy: Electron renderer communicates with Flask via HTTP (localhost); document decision.
 
-### Phase 2: Core Processing Engine (In Progress)
+### Phase 2: Core Processing Engine (Completed)
 - [x] **Schema Definition**: `MasterProfile`, `JobAnalysis`, `GeneratedDocument` types.
     -   TypeScript interfaces (frontend) + Python dataclasses (backend).
     -   Defines the contract between all layers before any integration work.
-- [ ] Document Ingestion: PDF/DOCX/TXT parsing.
-- [ ] AI Orchestrator: Unified API handler for Gemini/Claude.
-- [ ] Job Analysis: `analyze-job` endpoint to extract requirements (defined input/output schema).
+- [x] Document Ingestion: PDF/DOCX/TXT parsing.
+- [x] AI Orchestrator: Unified API handler for Gemini/Claude.
+- [x] Job Analysis: `analyze-job` endpoint to extract requirements (defined input/output schema).
 
 ### Phase 3: Template & Document Generation (In Progress)
 - [ ] **Output Format**: DOCX as primary output; PDF export as secondary.
