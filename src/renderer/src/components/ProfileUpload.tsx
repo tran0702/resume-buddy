@@ -4,7 +4,11 @@ import type { MasterProfile } from '../types/schema'
 
 type UploadState = 'idle' | 'parsing' | 'extracting' | 'done' | 'error'
 
-function ProfileUpload(): React.JSX.Element {
+interface ProfileUploadProps {
+  onProfileExtracted: (profile: MasterProfile) => void
+}
+
+function ProfileUpload({ onProfileExtracted }: ProfileUploadProps): React.JSX.Element {
   const [state, setState] = useState<UploadState>('idle')
   const [profile, setProfile] = useState<MasterProfile | null>(null)
   const [rawText, setRawText] = useState<string | null>(null)
@@ -41,6 +45,7 @@ function ProfileUpload(): React.JSX.Element {
     }
 
     setProfile(profileResult.data)
+    onProfileExtracted(profileResult.data)
     setState('done')
 
     // Reset the file input so the same file can be re-uploaded

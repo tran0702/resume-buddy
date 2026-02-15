@@ -36,10 +36,12 @@ def create_app(config_class: type = Config) -> Flask:
     from backend.api.documents import documents_bp
     from backend.api.jobs import jobs_bp
     from backend.api.profiles import profiles_bp
+    from backend.api.generation import generation_bp
 
     app.register_blueprint(documents_bp)
     app.register_blueprint(jobs_bp)
     app.register_blueprint(profiles_bp)
+    app.register_blueprint(generation_bp)
 
     @app.get('/health')
     def health():

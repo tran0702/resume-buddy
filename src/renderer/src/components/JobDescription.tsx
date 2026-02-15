@@ -4,7 +4,11 @@ import type { JobAnalysis } from '../types/schema'
 
 type AnalysisState = 'idle' | 'analyzing' | 'done' | 'error'
 
-function JobDescription(): React.JSX.Element {
+interface JobDescriptionProps {
+  onJobAnalyzed: (job: JobAnalysis) => void
+}
+
+function JobDescription({ onJobAnalyzed }: JobDescriptionProps): React.JSX.Element {
   const [jobText, setJobText] = useState('')
   const [state, setState] = useState<AnalysisState>('idle')
   const [analysis, setAnalysis] = useState<JobAnalysis | null>(null)
@@ -24,6 +28,7 @@ function JobDescription(): React.JSX.Element {
     }
 
     setAnalysis(result.data)
+    onJobAnalyzed(result.data)
     setState('done')
   }
 

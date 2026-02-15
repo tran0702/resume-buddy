@@ -115,6 +115,66 @@ Job description:
 ---"""
 
 
+_TAILOR_BULLETS_PROMPT = """\
+You are a professional resume writer specializing in ATS optimization.
+Given a candidate's profile and a job analysis, rewrite the experience bullets
+to highlight achievements relevant to the job. Use exact keywords from keywords_for_ats
+where they fit naturally. Keep bullets concise (under 120 chars), start with action verbs,
+and quantify impact where the original data supports it.
+
+Master Profile:
+{profile_json}
+
+Job Analysis:
+{job_analysis_json}
+
+Return a single JSON object following this schema exactly:
+{{
+  "tailored_experience": [
+    {{
+      "company": "string — must match the profile exactly",
+      "title": "string — must match the profile exactly",
+      "tailored_bullets": ["string", ...]
+    }}
+  ],
+  "tailoring_notes": [
+    "string — one sentence describing a key change made, e.g. 'Emphasized Python and REST APIs to match required_skills'"
+  ],
+  "ats_match_score": 75
+}}
+
+Rules:
+- Return ONLY valid JSON. No markdown, no explanation, no code fences.
+- tailored_experience must include an entry for EVERY position in the profile.
+- ats_match_score: integer 0–100 estimating keyword alignment after tailoring.
+- tailoring_notes: 2–5 concise notes about what was changed and why.
+- Do not invent experience or skills not present in the profile."""
+
+_COVER_LETTER_PROMPT = """\
+You are a professional career coach writing a cover letter.
+Write a concise, compelling cover letter (4 paragraphs, max 400 words total)
+for the candidate applying to this job.
+
+Master Profile:
+{profile_json}
+
+Job Analysis:
+{job_analysis_json}
+
+Return a single JSON object following this schema exactly:
+{{
+  "subject_line": "Application for [Job Title] — [Candidate Name]",
+  "cover_letter_text": "Full letter text. Use \\n\\n to separate paragraphs.\\n\\nParagraph 1: Express enthusiasm for the specific role and company. Reference the company name if available.\\n\\nParagraph 2: Connect 2–3 of the candidate's strongest experiences to the job's key requirements.\\n\\nParagraph 3: Highlight a specific achievement or skill from the profile that directly addresses a required skill.\\n\\nParagraph 4: Strong closing — request an interview, express eagerness, provide contact info."
+}}
+
+Rules:
+- Return ONLY valid JSON. No markdown, no explanation, no code fences.
+- cover_letter_text must be plain text only — no markdown, no asterisks, no headers.
+- Paragraphs must be separated by \\n\\n.
+- Use the candidate's actual name, experiences, and skills from the profile.
+- Do not begin with "I am writing to" — use an engaging opening instead."""
+
+
 class GeminiProvider(AIProvider):
 
     def __init__(self, api_key: str, model: str = 'gemini-1.5-flash') -> None:
@@ -181,4 +241,22 @@ class GeminiProvider(AIProvider):
     def analyze_job(self, job_description_text: str) -> dict:
         logger.info('[GeminiProvider] Analyzing job description...')
         prompt = _ANALYZE_JOB_PROMPT.format(job_description_text=job_description_text)
+        return self._generate_json(prompt)
+
+    def tailor_bullets(self, profile_dict: dict, job_analysis_dict: dict) -> dict:
+        logger.info('[GeminiProvider] Tailoring resume bullets...')
+        import json as _json
+        prompt = _TAILOR_BULLETS_PROMPT.format(
+            profile_json=_json.dumps(profile_dict, indent=2),
+            job_analysis_json=_json.dumps(job_analysis_dict, indent=2)
+        )
+        return self._generate_json(prompt)
+
+    def generate_cover_letter_text(self, profile_dict: dict, job_analysis_dict: dict) -> dict:
+        logger.info('[GeminiProvider] Generating cover letter text...')
+        import json as _json
+        prompt = _COVER_LETTER_PROMPT.format(
+            profile_json=_json.dumps(profile_dict, indent=2),
+            job_analysis_json=_json.dumps(job_analysis_dict, indent=2)
+        )
         return self._generate_json(prompt)

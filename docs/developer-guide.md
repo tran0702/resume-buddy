@@ -6,8 +6,8 @@
 3. [Setup & Running Locally](#3-setup--running-locally)
 4. [Architecture](#4-architecture)
 5. [API Reference](#5-api-reference)
-6. [What Was Built (Phases 0–2)](#6-what-was-built-phases-02)
-7. [What Comes Next (Phase 3)](#7-what-comes-next-phase-3)
+6. [What Was Built (Phases 0–3)](#6-what-was-built-phases-03)
+7. [What Comes Next (Phase 4)](#7-what-comes-next-phase-4)
 
 ---
 
@@ -20,8 +20,8 @@ Resume Buddy is a local-first desktop app built with:
 | Desktop shell | Electron 33 | Cross-platform window + OS integration |
 | Frontend | React 18 + TypeScript | UI components |
 | Build tool | electron-vite 2 + Vite 5 | Dev server + production bundling |
-| Backend | Python Flask 3.1 | Document parsing + AI orchestration |
-| AI (primary) | Google Gemini 1.5 Flash | Structured JSON extraction |
+| Backend | Python Flask 3.1 | Document parsing + AI orchestration + DOCX generation |
+| AI (primary) | Google Gemini 1.5 Flash | Structured JSON extraction + bullet tailoring |
 | AI (stub) | Anthropic Claude | Ready to activate when key is available |
 
 All AI calls happen server-side in Flask. The renderer never sees API keys.
@@ -50,19 +50,20 @@ resume-buddy/
 │       ├── index.html         ← Vite entry + Content Security Policy
 │       └── src/
 │           ├── main.tsx       ← React root
-│           ├── App.tsx        ← Shell: header + tab bar + health check
+│           ├── App.tsx        ← Shell: header + tab bar + health check + shared state
 │           ├── types/
-│           │   └── schema.ts  ← MasterProfile, JobAnalysis, GeneratedDocument
+│           │   └── schema.ts  ← All shared types (MasterProfile, JobAnalysis,
+│           │                     ResumeGenerationOptions, ResumeGenerationResult, …)
 │           ├── api/
-│           │   └── client.ts  ← Typed fetch wrappers for Flask endpoints
+│           │   └── client.ts  ← Typed fetch wrappers for all 6 Flask endpoints
 │           ├── components/
 │           │   ├── TabBar.tsx
-│           │   ├── ProfileUpload.tsx   ← upload + parse + extract profile
-│           │   ├── JobDescription.tsx  ← paste + analyze job
-│           │   └── Results.tsx         ← Phase 3 placeholder
+│           │   ├── ProfileUpload.tsx   ← upload + parse + extract; fires onProfileExtracted
+│           │   ├── JobDescription.tsx  ← paste + analyze job; fires onJobAnalyzed
+│           │   └── Results.tsx         ← options panel + generate + preview + download
 │           └── styles/
 │               ├── global.css          ← Tokyo Night CSS variables + reset
-│               └── components.css      ← all component styles
+│               └── components.css      ← all component styles (Phases 1–3)
 │
 ├── backend/
 │   ├── __init__.py            ← makes backend a Python package
@@ -74,11 +75,16 @@ resume-buddy/
 │       ├── documents.py       ← POST /parse-document
 │       ├── jobs.py            ← POST /analyze-job
 │       ├── profiles.py        ← POST /extract-profile
+│       ├── generation.py      ← POST /generate-resume, POST /generate-cover-letter
+│       ├── templates/
+│       │   ├── __init__.py
+│       │   ├── resume_builder.py       ← Harvard-style DOCX builder
+│       │   └── cover_letter_builder.py ← Cover letter DOCX builder
 │       └── ai/
 │           ├── __init__.py
-│           ├── base.py        ← AIProvider ABC + AIProviderError
+│           ├── base.py        ← AIProvider ABC (4 abstract methods)
 │           ├── orchestrator.py ← get_ai_provider() factory
-│           ├── gemini.py      ← GeminiProvider (active)
+│           ├── gemini.py      ← GeminiProvider (active — all 4 methods implemented)
 │           ├── claude.py      ← ClaudeProvider (stub — activate when key is ready)
 │           └── schemas.py     ← Python dataclasses mirroring schema.ts
 │
@@ -162,14 +168,19 @@ Flask Backend (localhost:5001)
        │
        ├── /parse-document → pdfminer.six / python-docx / plain read
        │
-       ├── /extract-profile ──────────┐
-       │                              ▼
-       └── /analyze-job ──── AIOrchestrator.get_ai_provider()
-                                      │
-                             ┌────────┴────────┐
-                             ▼                 ▼
-                       GeminiProvider    ClaudeProvider
-                      (active)           (stub)
+       ├── /extract-profile ──────────────────┐
+       │                                       │
+       ├── /analyze-job ────────────── AIOrchestrator.get_ai_provider()
+       │                                       │
+       ├── /generate-resume ──────────         ├── GeminiProvider (active)
+       │        │                    │         │     extract_profile()
+       │        ├── tailor_bullets() │         │     analyze_job()
+       │        └── resume_builder   │         │     tailor_bullets()
+       │                             │         │     generate_cover_letter_text()
+       └── /generate-cover-letter ───┘         │
+                │                              └── ClaudeProvider (stub)
+                ├── generate_cover_letter_text()
+                └── cover_letter_builder
 ```
 
 **Key security decisions:**
@@ -187,12 +198,33 @@ All providers implement `AIProvider` (abstract base in `backend/api/ai/base.py`)
 class AIProvider(ABC):
     def extract_profile(self, resume_text: str) -> dict: ...
     def analyze_job(self, job_description_text: str) -> dict: ...
+    def tailor_bullets(self, profile_dict: dict, job_analysis_dict: dict) -> dict: ...
+    def generate_cover_letter_text(self, profile_dict: dict, job_analysis_dict: dict) -> dict: ...
+
+    @property
     def provider_name(self) -> str: ...
 ```
 
-To activate Claude: set `AI_PROVIDER=claude` and `ANTHROPIC_API_KEY` in `.env`, then uncomment the implementation template in `backend/api/ai/claude.py`.
+**`tailor_bullets()` return shape:**
+```json
+{
+  "tailored_experience": [
+    { "company": "Acme", "title": "Engineer", "tailored_bullets": ["..."] }
+  ],
+  "tailoring_notes": ["Emphasized Python and Docker from ATS keywords"],
+  "ats_match_score": 78
+}
+```
 
-To add a new provider (e.g. OpenAI): create `backend/api/ai/openai.py` implementing `AIProvider`, add a branch in `backend/api/ai/orchestrator.py`, and add the key to `.env.example`.
+**`generate_cover_letter_text()` return shape:**
+```json
+{
+  "cover_letter_text": "Opening paragraph...\n\nBody paragraph...\n\nClosing paragraph.",
+  "subject_line": "Application for Senior Software Engineer — Jane Doe"
+}
+```
+
+To activate Claude: set `AI_PROVIDER=claude` and `ANTHROPIC_API_KEY` in `.env`, then uncomment the implementation template in `backend/api/ai/claude.py`.
 
 ### Shared Schema Contract
 
@@ -204,7 +236,24 @@ Key types:
 |---|---|
 | `MasterProfile` | Full structured resume (contact, experience, education, skills…) |
 | `JobAnalysis` | Extracted job requirements, ATS keywords, seniority level |
-| `GeneratedDocument` | Output of Phase 3 document generation |
+| `ResumeGenerationOptions` | Section toggles + max_pages |
+| `ResumeGenerationResult` | docx_base64, filename, preview_text, tailoring_notes, ats_match_score |
+| `CoverLetterGenerationOptions` | include_header, include_footer toggles |
+| `CoverLetterGenerationResult` | docx_base64, filename, preview_text |
+
+### State Flow (Frontend)
+
+Shared state lives in `App.tsx` and flows down as props:
+
+```
+App.tsx
+  ├── masterProfile: MasterProfile | null    ← set by ProfileUpload
+  └── jobAnalysis: JobAnalysis | null        ← set by JobDescription
+
+  ProfileUpload   → onProfileExtracted(profile) → sets masterProfile
+  JobDescription  → onJobAnalyzed(job)       → sets jobAnalysis
+  Results         ← receives profile + jobAnalysis as read-only props
+```
 
 ---
 
@@ -256,9 +305,62 @@ Returns `JobAnalysis` JSON via AI.
 ```
 Errors: `400` missing body | `422` text too short | `502` AI provider error
 
+### `POST /generate-resume`
+Body:
+```json
+{
+  "profile": { ...MasterProfile... },
+  "job_analysis": { ...JobAnalysis... },
+  "options": {
+    "include_skills": true,
+    "include_projects": false,
+    "include_certifications": true,
+    "include_volunteer": false,
+    "max_pages": 2
+  }
+}
+```
+Flow: `tailor_bullets()` → `resume_builder.build()` → base64 encode
+
+Response:
+```json
+{
+  "docx_base64": "...",
+  "filename": "Senior Software Engineer - Resume - Applied.docx",
+  "preview_text": "Jane Doe\njane@example.com | ...\n\nEXPERIENCE\n...",
+  "tailoring_notes": ["Emphasized Python and Docker from ATS keywords"],
+  "ats_match_score": 78
+}
+```
+Errors: `400` missing fields | `502` AI provider error
+
+### `POST /generate-cover-letter`
+Body:
+```json
+{
+  "profile": { ...MasterProfile... },
+  "job_analysis": { ...JobAnalysis... },
+  "options": {
+    "include_header": true,
+    "include_footer": false
+  }
+}
+```
+Flow: `generate_cover_letter_text()` → `cover_letter_builder.build()` → base64 encode
+
+Response:
+```json
+{
+  "docx_base64": "...",
+  "filename": "Senior Software Engineer - Cover Letter - Applied.docx",
+  "preview_text": "Jane Doe\njane@example.com\n...\nDear Hiring Manager,\n\n..."
+}
+```
+Errors: `400` missing fields | `502` AI provider error
+
 ---
 
-## 6. What Was Built (Phases 0–2)
+## 6. What Was Built (Phases 0–3)
 
 ### Phase 0 — Security & Init
 - `.gitignore` covering Node, Python, Electron, OS artifacts
@@ -279,112 +381,126 @@ Errors: `400` missing body | `422` text too short | `502` AI provider error
 - **Gemini provider**: uses new `google-genai` SDK (not deprecated `google-generativeai`); JSON mode (`response_mime_type='application/json'`) for reliable structured output
 - **Claude stub**: imports cleanly, raises clear error if called, includes commented implementation template
 - **Flask endpoints**: `/parse-document`, `/extract-profile`, `/analyze-job` — all with input validation and structured error responses
-- **React components**: ProfileUpload (upload → parse → extract, shows skill tags), JobDescription (analyze → required/preferred/ATS keyword tags), Results (placeholder)
+- **React components**: ProfileUpload (upload → parse → extract, shows skill tags), JobDescription (analyze → required/preferred/ATS keyword tags)
+
+### Phase 3 — Document Generation
+- **AI methods added**: `tailor_bullets()` (rewrites experience bullets for the target job) and `generate_cover_letter_text()` (writes full cover letter body) — implemented in Gemini, stubbed in Claude
+- **Harvard-style resume builder** (`backend/api/templates/resume_builder.py`): name 18pt bold centred, section headers ALL CAPS bold with bottom border rule, company+date row with right-aligned tab stop, italic title line, hanging-indent bullets, section toggles, page-limit heuristic with warnings in `tailoring_notes`
+- **Cover letter builder** (`backend/api/templates/cover_letter_builder.py`): optional header (name/contact/date/company), salutation, AI-generated body paragraphs split on `\n\n`, closing, optional page-number footer via XML field
+- **Generation blueprint** (`backend/api/generation.py`): `/generate-resume` and `/generate-cover-letter` — both return base64 DOCX + filename + preview text
+- **Shared state lifted** to `App.tsx`: `masterProfile` and `jobAnalysis` flow down as props; `ProfileUpload` and `JobDescription` fire callbacks when data is ready
+- **Results tab** (`src/renderer/src/components/Results.tsx`): prerequisite status pills, options panel (section toggles + page limit + cover letter toggles), Generate Resume / Generate Cover Letter buttons, text preview card, ATS score badge (green/orange/red), tailoring notes list, Download .docx button (`base64 → Uint8Array → Blob → anchor click`)
+- **Phase 3 CSS**: prereq pills, options panel, generate buttons, preview card, ATS score badge, tailoring notes
 
 ---
 
-## 7. What Comes Next (Phase 3)
+## 7. What Comes Next (Phase 4)
 
-Phase 3 is **Template & Document Generation**. The foundation is fully in place — this phase adds the output side.
+Phase 4 is **User Experience & Features**. The full generation pipeline works end-to-end — Phase 4 focuses on polish, profile editing, and additional workflow tools.
 
-### 3a. Output Format Decision
-- Primary: **DOCX** (`python-docx` is already installed)
-- Secondary: **PDF** — export from DOCX using `docx2pdf` (Windows/Mac) or LibreOffice headless
+### 4a. Profile Management (Manual Edit)
 
-### 3b. New Flask Endpoint: `/generate-resume`
+The current flow is one-way: upload resume → AI extracts profile → read-only preview.
+Phase 4 adds the ability to manually edit the extracted profile before generating documents.
 
-```
-POST /generate-resume
-Body: {
-  "profile": MasterProfile,   ← from /extract-profile
-  "job_analysis": JobAnalysis, ← from /analyze-job
-  "options": {
-    "include_skills": true,
-    "include_volunteer": false,
-    "include_hobbies": false,
-    "max_pages": 2
+**Approach — inline editable fields:**
+
+Add an "Edit Profile" mode to `ProfileUpload.tsx` (or a dedicated `ProfileEditor.tsx` component):
+- Contact section: text inputs for name, email, phone, location, LinkedIn, GitHub
+- Work experience: editable company/title/dates, add/remove/reorder bullet points
+- Education: editable institution/degree/field/graduation date
+- Skills: tag input (add/remove individual skills)
+- Certifications, projects, languages, volunteer: add/remove list items
+
+The edited `MasterProfile` object must be passed back up to `App.tsx` via the existing `onProfileExtracted` callback (or a new `onProfileUpdated` callback).
+
+**Key consideration**: The current `App.tsx` state only stores the most recently extracted profile. If the user edits then re-uploads, the edits are lost. Phase 4 should ensure edits are preserved — either by keeping a separate `editedProfile` state alongside the raw extracted one, or by treating the profile as fully mutable from the moment it is extracted.
+
+**Suggested implementation order:**
+1. Add edit button to profile preview card in `ProfileUpload.tsx`
+2. Create `ProfileEditor.tsx` — renders all profile fields as inputs
+3. On save, fire `onProfileExtracted` with the edited profile
+4. Wire up in `App.tsx` — no new state needed, just re-use `setMasterProfile`
+
+### 4b. File Naming Convention (Already in Generation)
+
+The naming convention `[Job Title] - Resume - Applied.docx` and `[Job Title] - Cover Letter - Applied.docx` is already implemented in `backend/api/generation.py` via the `_safe_filename()` helper. No further work needed here.
+
+### 4c. Template Selection (Visual Picker)
+
+Currently only one resume template exists (Harvard style). Phase 4 can add a template picker.
+
+**Approach:**
+- Define a `template: 'harvard' | 'modern' | 'minimal'` field in `ResumeGenerationOptions`
+- Add it to `schema.ts` and the backend `options` dict
+- Create `backend/api/templates/modern_builder.py` (or similar) following the same `build(profile, tailored, options) -> tuple[io.BytesIO, str]` interface
+- In `generation.py`, dispatch to the correct builder based on `options.get('template', 'harvard')`
+- In `Results.tsx`, add a template selector (radio group or visual cards) to the options panel
+
+### 4d. Application Helper UI
+
+**Salary Context Input:**
+- A simple form with fields: job title, location, years of experience, and a manual salary range entry
+- No external API — user manually enters the market rate range they have researched
+- Display as a reference card in the Results tab or as a separate sub-tab
+
+**Application Q&A:**
+- Text fields for common application questions: visa/work authorization status, "Why this company?", preferred start date
+- Store answers in component state; optionally pass to AI to incorporate into cover letter
+
+### 4e. Interview Prep Module
+
+Add a fourth tab: "Interview Prep"
+
+**Flow:**
+1. User clicks "Generate Interview Prep" (requires profile + job analysis — same prerequisites as Results)
+2. Calls a new endpoint `POST /generate-interview-prep`
+3. AI returns a structured set of likely interview questions with suggested talking-point answers based on the profile and job
+
+**New backend work needed:**
+- Add `generate_interview_prep(profile_dict, job_analysis_dict) -> dict` to `AIProvider` ABC
+- Implement in `gemini.py` with a prompt that returns:
+  ```json
+  {
+    "behavioural_questions": [{ "question": "...", "suggested_answer": "..." }],
+    "technical_questions": [{ "question": "...", "suggested_answer": "..." }],
+    "questions_to_ask": ["..."]
   }
-}
-Returns: {
-  "docx_base64": "...",         ← DOCX file as base64 string
-  "filename": "Senior Software Engineer - Resume - Applied.docx",
-  "page_count_estimate": 1
-}
-```
+  ```
+- Stub in `claude.py`
+- Add `POST /generate-interview-prep` to `generation.py`
 
-### 3c. New Flask Endpoint: `/generate-cover-letter`
+**New frontend work needed:**
+- Add `InterviewPrep.tsx` component
+- Add a fourth tab to `App.tsx` and `TABS` array
+- Display questions in expandable accordion cards
 
-```
-POST /generate-cover-letter
-Body: {
-  "profile": MasterProfile,
-  "job_analysis": JobAnalysis,
-  "options": {
-    "include_header": true,
-    "include_footer": false,
-    "max_pages": 1
-  }
-}
-Returns: {
-  "docx_base64": "...",
-  "filename": "Senior Software Engineer - Cover Letter - Applied.docx"
-}
-```
+### 4f. Implementation Order for Phase 4
 
-### 3d. Resume Builder Implementation Plan
+1. **Profile editor** — highest user value, needed before any downstream work on templates
+2. **Interview prep tab** — standalone new feature, no dependencies on profile editor
+3. **Template picker** — requires creating at least one additional DOCX builder
+4. **Application helper UI** — lower priority, can be done incrementally
 
-**New files to create:**
+### Phase 4 Files to Create
 
-```
-backend/api/
-├── generation.py              ← new blueprint: /generate-resume, /generate-cover-letter
-└── templates/
-    ├── __init__.py
-    ├── resume_builder.py      ← Harvard-style DOCX builder using python-docx
-    └── cover_letter_builder.py
-```
+| File | Purpose |
+|---|---|
+| `src/renderer/src/components/ProfileEditor.tsx` | Inline editable profile form |
+| `src/renderer/src/components/InterviewPrep.tsx` | Interview questions display |
+| `backend/api/templates/modern_builder.py` | Second resume template (optional) |
 
-**`resume_builder.py` responsibilities:**
-1. Accept `MasterProfile` + `JobAnalysis` dicts
-2. Call AI to produce a **tailored bullet list** — rewrite experience bullets to match job keywords
-3. Build the DOCX using `python-docx` with Harvard-style formatting:
-   - Name as large heading, contact info in one line
-   - Bold company + right-aligned dates
-   - Indented bullet points
-4. Page limit heuristic: estimate character count per section; warn if over limit (exact pagination not enforceable in DOCX without rendering)
-5. Return the DOCX as `io.BytesIO`, which the endpoint base64-encodes
+### Phase 4 Files to Modify
 
-**New AI prompt needed in `gemini.py`:**
-```
-Given this MasterProfile and JobAnalysis, rewrite the experience bullets
-to be tailored for the job. Emphasize keywords: {keywords_for_ats}.
-Return JSON: { "tailored_bullets": { "company_title_key": ["bullet", ...] } }
-```
-
-### 3e. Frontend Updates (Phase 3)
-
-**`Results.tsx`** becomes functional — replace the placeholder with:
-- Download button for resume DOCX
-- Download button for cover letter DOCX
-- ATS match score display
-- Tailoring notes (what the AI changed)
-
-**`App.tsx`** — add state to pass `MasterProfile` and `JobAnalysis` between tabs, or use React Context to share data across all three tabs.
-
-### 3f. New Backend Dependency
-
-Add to `requirements.txt`:
-```
-docx2pdf==0.1.8   # PDF export (requires Word on Windows, LibreOffice on Linux)
-```
-
-### Suggested Implementation Order for Phase 3
-
-1. Add `backend/api/templates/resume_builder.py` — DOCX generation, no AI yet (hardcoded bullets first)
-2. Test DOCX output manually, verify Harvard style formatting
-3. Add AI tailoring prompt to `gemini.py` — `tailor_resume()` method
-4. Wire up `backend/api/generation.py` blueprint
-5. Update `Results.tsx` to show download buttons
-6. Add shared state (React Context) so profile + job analysis flow into Results tab
-7. Add cover letter builder following the same pattern
-8. Add PDF export as a bonus step
+| File | Change |
+|---|---|
+| `src/renderer/src/App.tsx` | Add InterviewPrep tab + state |
+| `src/renderer/src/components/ProfileUpload.tsx` | Add edit mode / link to ProfileEditor |
+| `src/renderer/src/components/Results.tsx` | Add template selector, salary context |
+| `src/renderer/src/types/schema.ts` | Add `InterviewPrepResult`, extend `ResumeGenerationOptions` with `template` |
+| `src/renderer/src/api/client.ts` | Add `generateInterviewPrep()` |
+| `backend/api/ai/base.py` | Add `generate_interview_prep()` abstract method |
+| `backend/api/ai/gemini.py` | Implement `generate_interview_prep()` |
+| `backend/api/ai/claude.py` | Stub `generate_interview_prep()` |
+| `backend/api/generation.py` | Add `POST /generate-interview-prep` route |
+| `src/renderer/src/styles/components.css` | Add Phase 4 component styles |

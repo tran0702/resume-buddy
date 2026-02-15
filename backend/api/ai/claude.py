@@ -43,6 +43,18 @@ class ClaudeProvider(AIProvider):
             provider='claude'
         )
 
+    def tailor_bullets(self, profile_dict: dict, job_analysis_dict: dict) -> dict:
+        raise AIProviderError(
+            'Claude provider is not yet implemented. Set AI_PROVIDER=gemini in .env.',
+            provider='claude'
+        )
+
+    def generate_cover_letter_text(self, profile_dict: dict, job_analysis_dict: dict) -> dict:
+        raise AIProviderError(
+            'Claude provider is not yet implemented. Set AI_PROVIDER=gemini in .env.',
+            provider='claude'
+        )
+
     # ---- Implementation template (uncomment when API key is available) ----
     # def _generate_json(self, system_prompt: str, user_prompt: str) -> dict:
     #     import anthropic, json

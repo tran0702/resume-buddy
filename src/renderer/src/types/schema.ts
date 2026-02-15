@@ -90,6 +90,35 @@ export interface GeneratedDocument {
   ats_match_score?: number    // 0–100
 }
 
+// ------ Phase 3: Generation ------
+
+export interface ResumeGenerationOptions {
+  include_skills: boolean
+  include_projects: boolean
+  include_certifications: boolean
+  include_volunteer: boolean
+  max_pages: 1 | 2
+}
+
+export interface CoverLetterGenerationOptions {
+  include_header: boolean
+  include_footer: boolean
+}
+
+export interface ResumeGenerationResult {
+  docx_base64: string
+  filename: string
+  preview_text: string
+  tailoring_notes: string[]
+  ats_match_score: number
+}
+
+export interface CoverLetterGenerationResult {
+  docx_base64: string
+  filename: string
+  preview_text: string
+}
+
 // ------ API Response Wrappers ------
 
 export interface ApiSuccess<T> {

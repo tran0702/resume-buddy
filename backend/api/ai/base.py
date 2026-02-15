@@ -45,6 +45,45 @@ class AIProvider(ABC):
         """
         ...
 
+    @abstractmethod
+    def tailor_bullets(self, profile_dict: dict, job_analysis_dict: dict) -> dict:
+        """
+        Rewrite the resume's experience bullets to match the job's ATS keywords.
+
+        Args:
+            profile_dict: MasterProfile-shaped dict.
+            job_analysis_dict: JobAnalysis-shaped dict.
+
+        Returns:
+            A dict with keys:
+              "tailored_experience": list of { company, title, tailored_bullets }
+              "tailoring_notes": list of strings describing what was changed
+              "ats_match_score": int 0–100
+
+        Raises:
+            AIProviderError: If the AI call fails.
+        """
+        ...
+
+    @abstractmethod
+    def generate_cover_letter_text(self, profile_dict: dict, job_analysis_dict: dict) -> dict:
+        """
+        Generate professional cover letter text for the given profile and job.
+
+        Args:
+            profile_dict: MasterProfile-shaped dict.
+            job_analysis_dict: JobAnalysis-shaped dict.
+
+        Returns:
+            A dict with keys:
+              "cover_letter_text": str — full letter text, paragraphs separated by \\n\\n
+              "subject_line": str
+
+        Raises:
+            AIProviderError: If the AI call fails.
+        """
+        ...
+
     @property
     @abstractmethod
     def provider_name(self) -> str:

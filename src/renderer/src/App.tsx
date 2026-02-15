@@ -4,6 +4,7 @@ import ProfileUpload from './components/ProfileUpload'
 import JobDescription from './components/JobDescription'
 import Results from './components/Results'
 import { healthCheck } from './api/client'
+import type { MasterProfile, JobAnalysis } from './types/schema'
 
 type Tab = 'profile' | 'job' | 'results'
 
@@ -16,6 +17,8 @@ const TABS: { id: Tab; label: string }[] = [
 function App(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab>('profile')
   const [backendStatus, setBackendStatus] = useState<'checking' | 'ok' | 'error'>('checking')
+  const [masterProfile, setMasterProfile] = useState<MasterProfile | null>(null)
+  const [jobAnalysis, setJobAnalysis] = useState<JobAnalysis | null>(null)
 
   useEffect(() => {
     healthCheck().then((result) => {
@@ -37,9 +40,15 @@ function App(): React.JSX.Element {
       <TabBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as Tab)} />
 
       <main className="app-content">
-        {activeTab === 'profile' && <ProfileUpload />}
-        {activeTab === 'job' && <JobDescription />}
-        {activeTab === 'results' && <Results />}
+        {activeTab === 'profile' && (
+          <ProfileUpload onProfileExtracted={setMasterProfile} />
+        )}
+        {activeTab === 'job' && (
+          <JobDescription onJobAnalyzed={setJobAnalysis} />
+        )}
+        {activeTab === 'results' && (
+          <Results profile={masterProfile} jobAnalysis={jobAnalysis} />
+        )}
       </main>
     </div>
   )

@@ -1,4 +1,8 @@
-import type { MasterProfile, JobAnalysis, ApiResult } from '../types/schema'
+import type {
+  MasterProfile, JobAnalysis, ApiResult,
+  ResumeGenerationOptions, CoverLetterGenerationOptions,
+  ResumeGenerationResult, CoverLetterGenerationResult
+} from '../types/schema'
 
 const BASE_URL = 'http://localhost:5001'
 
@@ -59,6 +63,32 @@ export async function extractProfile(text: string): Promise<ApiResult<MasterProf
 /** Analyze a job description and return a structured JobAnalysis */
 export async function analyzeJob(text: string): Promise<ApiResult<JobAnalysis>> {
   return post<JobAnalysis>('/analyze-job', { text })
+}
+
+/** Generate a tailored resume DOCX */
+export async function generateResume(
+  profile: MasterProfile,
+  jobAnalysis: JobAnalysis,
+  options: ResumeGenerationOptions
+): Promise<ApiResult<ResumeGenerationResult>> {
+  return post<ResumeGenerationResult>('/generate-resume', {
+    profile: profile as unknown as Record<string, unknown>,
+    job_analysis: jobAnalysis as unknown as Record<string, unknown>,
+    options: options as unknown as Record<string, unknown>
+  })
+}
+
+/** Generate a cover letter DOCX */
+export async function generateCoverLetter(
+  profile: MasterProfile,
+  jobAnalysis: JobAnalysis,
+  options: CoverLetterGenerationOptions
+): Promise<ApiResult<CoverLetterGenerationResult>> {
+  return post<CoverLetterGenerationResult>('/generate-cover-letter', {
+    profile: profile as unknown as Record<string, unknown>,
+    job_analysis: jobAnalysis as unknown as Record<string, unknown>,
+    options: options as unknown as Record<string, unknown>
+  })
 }
 
 /** Health check — verify Flask backend is reachable */

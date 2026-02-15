@@ -35,14 +35,14 @@ Build a local desktop application that customizes resumes and cover letters base
 - [x] AI Orchestrator: Unified API handler for Gemini/Claude.
 - [x] Job Analysis: `analyze-job` endpoint to extract requirements (defined input/output schema).
 
-### Phase 3: Template & Document Generation (In Progress)
-- [ ] **Output Format**: DOCX as primary output; PDF export as secondary.
-- [ ] **Resume Builder**:
+### Phase 3: Template & Document Generation (Completed)
+- [x] **Output Format**: DOCX as primary output; PDF export as secondary.
+- [x] **Resume Builder**:
     -   "Master Profile" data structure (prerequisite — must be completed first).
     -   Harvard Style Template engine.
     -   Section Toggles (Skills, Volunteer, Hobbies).
     -   Page Limit Enforcer (Max 2 pages; approximated via character/line count heuristic — exact DOCX pagination not guaranteed).
-- [ ] **Cover Letter Generator**:
+- [x] **Cover Letter Generator**:
     -   Length Control (Max 2 pages).
     -   Header/Footer toggles.
 
