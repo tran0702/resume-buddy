@@ -1,0 +1,26 @@
+Jane Doe
+jane@example.com | (555) 123-4567 | New York, NY
+linkedin.com/in/janedoe | github.com/janedoe
+
+SUMMARY
+Experienced software engineer with 5 years building Python APIs and React frontends.
+
+EXPERIENCE
+Acme Corporation  |  Software Engineer  |  2022-01 – Present
+• Built RESTful APIs with Flask and FastAPI serving 50K requests/day
+• Reduced deployment time by 40% by migrating CI/CD to GitHub Actions
+• Mentored two junior engineers through code reviews and pair programming
+
+StartupCo  |  Junior Developer  |  2020-06 – 2021-12
+• Developed React dashboards for real-time data visualisation
+• Integrated third-party payment APIs (Stripe, PayPal)
+
+EDUCATION
+State University  |  B.S. Computer Science  |  2020-05
+GPA: 3.8 / 4.0  |  Dean's List
+
+SKILLS
+Python, JavaScript, TypeScript, React, Flask, FastAPI, PostgreSQL, Docker, Git
+
+CERTIFICATIONS
+AWS Certified Developer – Associate (2023)

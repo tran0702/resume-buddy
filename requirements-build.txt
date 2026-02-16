@@ -1,0 +1,3 @@
+# Build-only dependency — NOT included in app requirements
+# Install with: .venv/Scripts/pip install -r requirements-build.txt
+pyinstaller==6.11.0

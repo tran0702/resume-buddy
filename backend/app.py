@@ -7,14 +7,16 @@ Run from the project root as:
 This ensures 'backend' is resolved as a package from the project root,
 so all `from backend.xxx import yyy` imports work correctly.
 """
+import sys
 import os
-from dotenv import load_dotenv
 
-# Load .env BEFORE importing application modules.
-# Config reads from os.environ at class-definition time,
-# so .env must be populated first.
-_env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
-load_dotenv(dotenv_path=_env_path)
+# Load .env only in development (not when frozen by PyInstaller).
+# In the packaged app, Electron main passes API keys as environment variables
+# directly to this subprocess — no .env file is present or needed.
+if not getattr(sys, 'frozen', False):
+    from dotenv import load_dotenv
+    _env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+    load_dotenv(dotenv_path=_env_path)
 
 from backend.api import create_app  # noqa: E402
 

@@ -65,8 +65,12 @@ def generate_resume():
         logger.info(f'[generate-resume] Tailoring bullets via {provider.provider_name}...')
         tailored = provider.tailor_bullets(profile, job_analysis)
 
-        from backend.api.templates import resume_builder
-        logger.info('[generate-resume] Building DOCX...')
+        template_name = options.get('template', 'harvard')
+        if template_name == 'modern':
+            from backend.api.templates import modern_builder as resume_builder
+        else:
+            from backend.api.templates import resume_builder
+        logger.info(f'[generate-resume] Building DOCX (template={template_name})...')
         docx_buf, preview_text = resume_builder.build(profile, tailored, options)
 
         docx_bytes = docx_buf.read()
@@ -156,4 +160,53 @@ def generate_cover_letter():
         return jsonify({'error': str(e)}), 500
     except Exception as e:
         logger.exception(f'[generate-cover-letter] Unexpected error: {e}')
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+
+@generation_bp.post('/generate-interview-prep')
+def generate_interview_prep():
+    """
+    POST /generate-interview-prep
+    Body: {
+        "profile": MasterProfile,
+        "job_analysis": JobAnalysis
+    }
+    Returns: {
+        "behavioural_questions": [{"question": str, "suggested_answer": str}, ...],
+        "technical_questions":   [{"question": str, "suggested_answer": str}, ...],
+        "questions_to_ask":      [str, ...]
+    }
+    """
+    body = request.get_json(silent=True)
+    if not body:
+        return jsonify({'error': 'Request body must be JSON.'}), 400
+
+    profile = body.get('profile')
+    job_analysis = body.get('job_analysis')
+
+    if not profile or not isinstance(profile, dict):
+        return jsonify({'error': '"profile" field is required and must be a JSON object.'}), 400
+    if not job_analysis or not isinstance(job_analysis, dict):
+        return jsonify({'error': '"job_analysis" field is required and must be a JSON object.'}), 400
+
+    try:
+        provider = get_ai_provider()
+        logger.info(f'[generate-interview-prep] Generating via {provider.provider_name}...')
+        result = provider.generate_interview_prep(profile, job_analysis)
+
+        logger.info('[generate-interview-prep] Done.')
+        return jsonify({
+            'behavioural_questions': result.get('behavioural_questions', []),
+            'technical_questions':   result.get('technical_questions', []),
+            'questions_to_ask':      result.get('questions_to_ask', [])
+        }), 200
+
+    except AIProviderError as e:
+        logger.error(f'[generate-interview-prep] AI error ({e.provider}): {e}')
+        return jsonify({'error': str(e), 'detail': f'Provider: {e.provider}'}), 502
+    except ValueError as e:
+        logger.error(f'[generate-interview-prep] Config error: {e}')
+        return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        logger.exception(f'[generate-interview-prep] Unexpected error: {e}')
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500

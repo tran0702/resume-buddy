@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { generateResume, generateCoverLetter } from '../api/client'
 import type {
   MasterProfile, JobAnalysis,
@@ -17,6 +17,19 @@ type GenerationState =
 interface ResultsProps {
   profile: MasterProfile | null
   jobAnalysis: JobAnalysis | null
+}
+
+interface AppHelperState {
+  job_title: string
+  location: string
+  years_experience: string
+  salary_min: string
+  salary_max: string
+  currency: 'USD' | 'GBP' | 'EUR' | 'AUD' | 'CAD'
+  visa_status: string
+  why_this_company: string
+  preferred_start_date: string
+  willing_to_relocate: boolean
 }
 
 function downloadDocx(base64: string, filename: string): void {
@@ -50,12 +63,39 @@ function Results({ profile, jobAnalysis }: ResultsProps): React.JSX.Element {
     include_projects: false,
     include_certifications: true,
     include_volunteer: false,
-    max_pages: 2
+    max_pages: 2,
+    template: 'harvard'
   })
   const [coverOptions, setCoverOptions] = useState<CoverLetterGenerationOptions>({
     include_header: true,
     include_footer: false
   })
+
+  // Application Helper state — frontend only, not sent to backend
+  const [showAppHelper, setShowAppHelper] = useState(false)
+  const [appHelper, setAppHelper] = useState<AppHelperState>({
+    job_title: '',
+    location: '',
+    years_experience: '',
+    salary_min: '',
+    salary_max: '',
+    currency: 'USD',
+    visa_status: '',
+    why_this_company: '',
+    preferred_start_date: '',
+    willing_to_relocate: false
+  })
+
+  // Pre-fill job_title from jobAnalysis whenever it changes
+  useEffect(() => {
+    if (jobAnalysis?.job_title) {
+      setAppHelper((prev) => ({ ...prev, job_title: jobAnalysis.job_title }))
+    }
+  }, [jobAnalysis])
+
+  function setAppField<K extends keyof AppHelperState>(field: K, value: AppHelperState[K]): void {
+    setAppHelper((prev) => ({ ...prev, [field]: value }))
+  }
 
   const hasProfile = profile !== null
   const hasJob = jobAnalysis !== null
@@ -159,6 +199,43 @@ function Results({ profile, jobAnalysis }: ResultsProps): React.JSX.Element {
             </div>
 
             <div className="options-group">
+              <h3 className="options-heading">Resume Template</h3>
+              <div className="template-picker">
+                {(
+                  [
+                    {
+                      id: 'harvard' as const,
+                      name: 'Harvard Style',
+                      description: 'Traditional ALL-CAPS headers, right-aligned dates'
+                    },
+                    {
+                      id: 'modern' as const,
+                      name: 'Modern',
+                      description: 'Clean SMALL CAPS headers with blue accent underline'
+                    }
+                  ]
+                ).map((tpl) => (
+                  <label
+                    key={tpl.id}
+                    className={`template-card${resumeOptions.template === tpl.id ? ' template-card--selected' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="template"
+                      value={tpl.id}
+                      checked={resumeOptions.template === tpl.id}
+                      onChange={() => setResumeOptions((prev) => ({ ...prev, template: tpl.id }))}
+                      disabled={isGenerating}
+                      style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
+                    />
+                    <span className="template-card-name">{tpl.name}</span>
+                    <span className="template-card-desc">{tpl.description}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="options-group">
               <h3 className="options-heading">Cover Letter Options</h3>
               <div className="options-checkboxes">
                 <label className="option-label">
@@ -203,6 +280,154 @@ function Results({ profile, jobAnalysis }: ResultsProps): React.JSX.Element {
             >
               {state === 'generating-cover' ? 'Generating cover letter...' : 'Generate Cover Letter'}
             </button>
+          </div>
+
+          {/* Application Reference Card */}
+          <div className="app-helper-panel">
+            <button
+              className="app-helper-toggle"
+              onClick={() => setShowAppHelper((prev) => !prev)}
+              aria-expanded={showAppHelper}
+            >
+              <span className="app-helper-toggle-label">Application Reference Card</span>
+              <span className="app-helper-toggle-chevron">{showAppHelper ? '▲' : '▼'}</span>
+            </button>
+
+            {showAppHelper && (
+              <div className="app-helper-body">
+                <p className="app-helper-hint">
+                  Fill in details for quick reference while completing job applications.
+                  This data stays in the app only.
+                </p>
+
+                {/* Salary Context */}
+                <div className="app-helper-group">
+                  <h4 className="app-helper-group-heading">Salary Context</h4>
+                  <div className="app-helper-grid">
+                    <div className="editor-field">
+                      <label className="editor-label">Job Title</label>
+                      <input
+                        className="editor-input"
+                        value={appHelper.job_title}
+                        onChange={(e) => setAppField('job_title', e.target.value)}
+                      />
+                    </div>
+                    <div className="editor-field">
+                      <label className="editor-label">Location</label>
+                      <input
+                        className="editor-input"
+                        value={appHelper.location}
+                        onChange={(e) => setAppField('location', e.target.value)}
+                        placeholder="e.g. London, UK"
+                      />
+                    </div>
+                    <div className="editor-field">
+                      <label className="editor-label">Years Experience</label>
+                      <input
+                        className="editor-input"
+                        type="number"
+                        min="0"
+                        value={appHelper.years_experience}
+                        onChange={(e) => setAppField('years_experience', e.target.value)}
+                      />
+                    </div>
+                    <div className="editor-field">
+                      <label className="editor-label">Currency</label>
+                      <select
+                        className="editor-input editor-select"
+                        value={appHelper.currency}
+                        onChange={(e) =>
+                          setAppField('currency', e.target.value as AppHelperState['currency'])
+                        }
+                      >
+                        {(['USD', 'GBP', 'EUR', 'AUD', 'CAD'] as const).map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="editor-field">
+                      <label className="editor-label">Salary Min</label>
+                      <input
+                        className="editor-input"
+                        type="number"
+                        min="0"
+                        value={appHelper.salary_min}
+                        onChange={(e) => setAppField('salary_min', e.target.value)}
+                        placeholder="e.g. 60000"
+                      />
+                    </div>
+                    <div className="editor-field">
+                      <label className="editor-label">Salary Max</label>
+                      <input
+                        className="editor-input"
+                        type="number"
+                        min="0"
+                        value={appHelper.salary_max}
+                        onChange={(e) => setAppField('salary_max', e.target.value)}
+                        placeholder="e.g. 80000"
+                      />
+                    </div>
+                  </div>
+                  {(appHelper.salary_min || appHelper.salary_max) && (
+                    <p className="app-helper-salary-display">
+                      Target range: {appHelper.currency} {appHelper.salary_min || '?'} –{' '}
+                      {appHelper.salary_max || '?'}
+                    </p>
+                  )}
+                </div>
+
+                {/* Application Q&A */}
+                <div className="app-helper-group">
+                  <h4 className="app-helper-group-heading">Application Q&A</h4>
+                  <div className="app-helper-grid">
+                    <div className="editor-field">
+                      <label className="editor-label">Visa / Work Authorization</label>
+                      <select
+                        className="editor-input editor-select"
+                        value={appHelper.visa_status}
+                        onChange={(e) => setAppField('visa_status', e.target.value)}
+                      >
+                        <option value="">Select...</option>
+                        <option value="Citizen">Citizen</option>
+                        <option value="Permanent Resident">Permanent Resident</option>
+                        <option value="Work Visa">Work Visa (no sponsorship needed)</option>
+                        <option value="Requires Sponsorship">Requires Sponsorship</option>
+                        <option value="Student Visa">Student Visa / OPT</option>
+                      </select>
+                    </div>
+                    <div className="editor-field">
+                      <label className="editor-label">Preferred Start Date</label>
+                      <input
+                        className="editor-input"
+                        value={appHelper.preferred_start_date}
+                        onChange={(e) => setAppField('preferred_start_date', e.target.value)}
+                        placeholder="e.g. 2 weeks notice / Immediately"
+                      />
+                    </div>
+                    <div className="editor-field editor-field--full">
+                      <label className="editor-label">Why This Company</label>
+                      <textarea
+                        className="editor-textarea"
+                        rows={3}
+                        value={appHelper.why_this_company}
+                        onChange={(e) => setAppField('why_this_company', e.target.value)}
+                        placeholder="What genuinely excites you about this company or role?"
+                      />
+                    </div>
+                    <div className="editor-field">
+                      <label className="option-label" style={{ marginTop: 'var(--space-1)' }}>
+                        <input
+                          type="checkbox"
+                          checked={appHelper.willing_to_relocate}
+                          onChange={(e) => setAppField('willing_to_relocate', e.target.checked)}
+                        />
+                        Willing to relocate
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

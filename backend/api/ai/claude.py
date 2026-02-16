@@ -55,6 +55,12 @@ class ClaudeProvider(AIProvider):
             provider='claude'
         )
 
+    def generate_interview_prep(self, profile_dict: dict, job_analysis_dict: dict) -> dict:
+        raise AIProviderError(
+            'Claude provider is not yet implemented. Set AI_PROVIDER=gemini in .env.',
+            provider='claude'
+        )
+
     # ---- Implementation template (uncomment when API key is available) ----
     # def _generate_json(self, system_prompt: str, user_prompt: str) -> dict:
     #     import anthropic, json

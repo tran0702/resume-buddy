@@ -46,22 +46,28 @@ Build a local desktop application that customizes resumes and cover letters base
     -   Length Control (Max 2 pages).
     -   Header/Footer toggles.
 
-### Phase 4: User Experience & Features (Planned)
-- [ ] **File Naming Conventions**:
+### Phase 4: User Experience & Features (Completed)
+- [x] **File Naming Conventions**:
     -   Resume: `[Job Title] - Resume - Applied`
     -   Cover Letter: `[Job Title] - Cover Letter - Applied`
-- [ ] **Profile Management**: Manual edit of parsed profile data.
-- [ ] **Template Selection**: Visual picker for layouts.
-- [ ] **Application Helper UI**:
-    -   Salary Context Input: manual entry of market rate range with level selector (no external API in MVP).
-    -   Application Q&A (Visa status, "Why us?").
-- [ ] **Interview Prep Module**: On-demand Q&A generation.
+- [x] **Profile Management**: Manual edit of parsed profile data.
+- [x] **Template Selection**: Visual picker for layouts (Harvard + Modern).
+- [x] **Application Helper UI**:
+    -   Salary Context Input: manual entry of market rate range with currency selector (no external API).
+    -   Application Q&A (Visa status, "Why us?", start date, willing to relocate).
+- [x] **Interview Prep Module**: On-demand Q&A generation (behavioural + technical + questions to ask).
 
-### Phase 5: Testing & Packaging (Planned)
-- [ ] Validation with various resume formats.
-- [ ] Packaging (.exe/.dmg) using `electron-builder`.
-- [ ] Code signing setup (Apple Developer ID for `.dmg`; optional for `.exe` in MVP).
-- [ ] Auto-update strategy: `electron-updater` (deferred to post-MVP).
+### Phase 5: Testing & Packaging (Completed — Windows)
+- [x] **5a — Validation suite**: 60-test pytest suite covering document parsing edge cases (TXT/PDF/DOCX), mocked AI providers (no API calls), generation route integration tests. Run with `npm run test:backend`.
+- [x] **5b — Windows packaging**:
+    -   Flask backend frozen via PyInstaller `--onedir` → `dist/backend/run_backend/run_backend.exe`
+    -   Electron main spawns the frozen Flask in packaged mode; polls `/health` until ready.
+    -   First-run API key setup modal (`ApiKeySetup.tsx`); keys stored in `userData/settings.json` via IPC.
+    -   `electron-builder` produces `release/Resume Buddy-0.1.0-win.zip` (portable) + `win-unpacked/` directory.
+    -   Full build: `npm run dist:win` (build + pyinstaller + electron-builder).
+- [ ] macOS packaging (`.dmg`) — deferred to Phase 5c.
+- [ ] Code signing (Apple Developer ID for macOS; SmartScreen bypass for Windows) — post-MVP.
+- [ ] Auto-update strategy: `electron-updater` — deferred to post-MVP.
 
 ## 4. Future Expansion (Web/Mobile)
 -   **Web Port**: Host React frontend on Vercel/Netlify; deploy Python backend to AWS Lambda/GCP Cloud Run.

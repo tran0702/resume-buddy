@@ -6,8 +6,8 @@
 3. [Setup & Running Locally](#3-setup--running-locally)
 4. [Architecture](#4-architecture)
 5. [API Reference](#5-api-reference)
-6. [What Was Built (Phases 0–3)](#6-what-was-built-phases-03)
-7. [What Comes Next (Phase 4)](#7-what-comes-next-phase-4)
+6. [What Was Built (Phases 0–5)](#6-what-was-built-phases-05)
+7. [Building for Windows](#7-building-for-windows)
 
 ---
 
@@ -39,54 +39,77 @@ resume-buddy/
 ├── tsconfig.json              ← root: references node + web configs
 ├── tsconfig.node.json         ← main process + preload compiler options
 ├── tsconfig.web.json          ← React renderer compiler options
-├── electron-builder.yml       ← Phase 5 packaging stub
+├── electron-builder.yml       ← electron-builder config (zip + dir targets for Windows)
 │
 ├── src/
 │   ├── main/
 │   │   └── index.ts           ← Electron main process
 │   ├── preload/
-│   │   └── index.ts           ← contextBridge (exposes platform only)
+│   │   └── index.ts           ← contextBridge (exposes platform + IPC: settings, flask:restart)
 │   └── renderer/
 │       ├── index.html         ← Vite entry + Content Security Policy
 │       └── src/
 │           ├── main.tsx       ← React root
-│           ├── App.tsx        ← Shell: header + tab bar + health check + shared state
+│           ├── env.d.ts       ← Window.api type declarations (AppSettings, IPC channels)
+│           ├── App.tsx        ← Shell: header + tab bar + health check + shared state + setup check
 │           ├── types/
 │           │   └── schema.ts  ← All shared types (MasterProfile, JobAnalysis,
 │           │                     ResumeGenerationOptions, ResumeGenerationResult, …)
 │           ├── api/
-│           │   └── client.ts  ← Typed fetch wrappers for all 6 Flask endpoints
+│           │   └── client.ts  ← Typed fetch wrappers for all Flask endpoints
 │           ├── components/
 │           │   ├── TabBar.tsx
+│           │   ├── ApiKeySetup.tsx     ← First-run modal: provider + API key entry
 │           │   ├── ProfileUpload.tsx   ← upload + parse + extract; fires onProfileExtracted
 │           │   ├── JobDescription.tsx  ← paste + analyze job; fires onJobAnalyzed
 │           │   └── Results.tsx         ← options panel + generate + preview + download
 │           └── styles/
 │               ├── global.css          ← Tokyo Night CSS variables + reset
-│               └── components.css      ← all component styles (Phases 1–3)
+│               └── components.css      ← all component styles (Phases 1–5)
 │
 ├── backend/
 │   ├── __init__.py            ← makes backend a Python package
-│   ├── app.py                 ← Flask entry point (load_dotenv → create_app → run)
+│   ├── app.py                 ← Flask entry point (frozen guard + load_dotenv → create_app → run)
 │   ├── config.py              ← Config class reads os.environ
 │   ├── requirements.txt
 │   └── api/
-│       ├── __init__.py        ← create_app() factory + CORS + blueprint registration
+│       ├── __init__.py        ← create_app() factory + CORS + after_request null-origin hook
 │       ├── documents.py       ← POST /parse-document
 │       ├── jobs.py            ← POST /analyze-job
 │       ├── profiles.py        ← POST /extract-profile
-│       ├── generation.py      ← POST /generate-resume, POST /generate-cover-letter
+│       ├── generation.py      ← POST /generate-resume, /generate-cover-letter, /generate-interview-prep
 │       ├── templates/
 │       │   ├── __init__.py
 │       │   ├── resume_builder.py       ← Harvard-style DOCX builder
+│       │   ├── modern_builder.py       ← Modern-style DOCX builder
 │       │   └── cover_letter_builder.py ← Cover letter DOCX builder
 │       └── ai/
 │           ├── __init__.py
-│           ├── base.py        ← AIProvider ABC (4 abstract methods)
+│           ├── base.py        ← AIProvider ABC (5 abstract methods incl. generate_interview_prep)
 │           ├── orchestrator.py ← get_ai_provider() factory
-│           ├── gemini.py      ← GeminiProvider (active — all 4 methods implemented)
+│           ├── gemini.py      ← GeminiProvider (active — all 5 methods implemented)
 │           ├── claude.py      ← ClaudeProvider (stub — activate when key is ready)
 │           └── schemas.py     ← Python dataclasses mirroring schema.ts
+│
+├── backend/tests/             ← pytest suite (Phase 5a — 60 tests)
+│   ├── __init__.py
+│   ├── conftest.py            ← session Flask app, mock_ai_provider fixture
+│   ├── fixtures/
+│   │   ├── sample_resume.txt
+│   │   ├── sample_resume.pdf
+│   │   └── sample_resume.docx
+│   ├── test_document_parsing.py   ← unit tests for _extract_* helpers
+│   ├── test_document_routes.py    ← HTTP tests for /parse-document
+│   └── test_generation_routes.py  ← mocked AI tests for generation endpoints
+│
+├── scripts/
+│   ├── create_test_fixtures.py    ← one-time: generates fixtures above
+│   └── run_backend.py             ← PyInstaller entry point (frozen mode)
+│
+├── pyproject.toml             ← pytest config (testpaths, pythonpath=["."])
+├── backend.spec               ← PyInstaller spec (onedir, collect_all for pdfminer/docx/genai)
+├── requirements-dev.txt       ← pytest, fpdf2 (fixture generation)
+├── requirements-build.txt     ← pyinstaller
 │
 └── docs/
     ├── roadmap.md             ← product roadmap + phase tracking
@@ -156,11 +179,19 @@ The Electron window opens automatically. The status pill in the header shows **"
 ### Communication Flow
 
 ```
-Electron Main Process
+Electron Main Process (src/main/index.ts)
+       │
+       ├── dev:      Flask started by concurrently (npm run dev)
+       ├── packaged: spawns run_backend.exe, polls /health until ready
+       │
+       │  IPC (contextBridge)
+       ├── settings:load / settings:save  → userData/settings.json
+       ├── settings:hasApiKey             → true in dev, checks settings in prod
+       └── flask:restart                  → kill + respawn Flask with new env
        │
        │  loads
        ▼
-React Renderer (Vite / localhost:5173 in dev)
+React Renderer (Vite / localhost:5173 in dev, file:// in prod)
        │
        │  fetch() HTTP — plain HTTP, no IPC
        ▼
@@ -177,17 +208,16 @@ Flask Backend (localhost:5001)
        │        ├── tailor_bullets() │         │     analyze_job()
        │        └── resume_builder   │         │     tailor_bullets()
        │                             │         │     generate_cover_letter_text()
-       └── /generate-cover-letter ───┘         │
-                │                              └── ClaudeProvider (stub)
-                ├── generate_cover_letter_text()
-                └── cover_letter_builder
+       ├── /generate-cover-letter ────┘         │     generate_interview_prep()
+       │                                        │
+       └── /generate-interview-prep            └── ClaudeProvider (stub)
 ```
 
 **Key security decisions:**
 - `contextIsolation: true` + `nodeIntegration: false` — always enforced
-- API keys live only in Flask — the renderer never sees them
+- API keys stored only in `userData/settings.json` (packaged) or `.env` (dev) — renderer never sees them
 - Flask binds to `127.0.0.1` only (not `0.0.0.0`)
-- CORS restricted to localhost origins only
+- CORS: explicit `after_request` hook handles `Origin: null` (Electron file:// sends null, not `file://`)
 - Content Security Policy in `index.html` explicitly whitelists `localhost:5001`
 
 ### AI Provider Pattern
@@ -360,7 +390,7 @@ Errors: `400` missing fields | `502` AI provider error
 
 ---
 
-## 6. What Was Built (Phases 0–3)
+## 6. What Was Built (Phases 0–5)
 
 ### Phase 0 — Security & Init
 - `.gitignore` covering Node, Python, Electron, OS artifacts
@@ -392,115 +422,80 @@ Errors: `400` missing fields | `502` AI provider error
 - **Results tab** (`src/renderer/src/components/Results.tsx`): prerequisite status pills, options panel (section toggles + page limit + cover letter toggles), Generate Resume / Generate Cover Letter buttons, text preview card, ATS score badge (green/orange/red), tailoring notes list, Download .docx button (`base64 → Uint8Array → Blob → anchor click`)
 - **Phase 3 CSS**: prereq pills, options panel, generate buttons, preview card, ATS score badge, tailoring notes
 
+### Phase 4 — User Experience & Features
+- **Profile Editor** (`src/renderer/src/components/ProfileEditor.tsx`): full inline-editable form for all MasterProfile sections (contact, summary, work experience with bullet add/remove/reorder, education, skills tag-input, certifications/languages/volunteer string lists, projects). Deep-clone pattern with `JSON.parse(JSON.stringify(profile))` for safe draft state
+- **`editedProfile` state** in `App.tsx`: fresh upload resets both `masterProfile` and `editedProfile`; editing only touches `editedProfile`; `Results` and `InterviewPrep` consume `editedProfile`
+- **Interview Prep tab** (`src/renderer/src/components/InterviewPrep.tsx`): 4th tab, same prerequisite pills as Results, calls `POST /generate-interview-prep`, accordion Q&A cards (click to expand answer), three sections: Behavioural, Technical, Questions to Ask
+- **`generate_interview_prep()` AI method**: added to `AIProvider` ABC, implemented in `GeminiProvider` (5 behavioural + 5 technical + 4 questions grounded in profile data), stubbed in `ClaudeProvider`
+- **Modern resume template** (`backend/api/templates/modern_builder.py`): same interface as `resume_builder.py`; name 22pt bold centered, contact line with `·` separator, horizontal rule, SMALL CAPS headers via `w:smallCaps` XML with blue `7aa2f7` bottom border accent
+- **Template picker** in `Results.tsx`: two radio-card options (Harvard / Modern), sent as `options.template` to backend; `generation.py` dispatches to the correct builder
+- **Application Reference Card** in `Results.tsx`: collapsible panel (collapsed by default) with Salary Context (job title, location, years exp, currency, min/max + formatted range display) and Application Q&A (visa status, start date, why this company, willing to relocate); frontend-only, no backend
+- **Phase 4 CSS**: editor overlay, grid/field/label/input/textarea/card patterns, btn--icon variants, tag-remove, string-list, QA accordion cards, template picker cards, app-helper panel
+
+### Phase 5 — Testing & Windows Packaging
+
+**5a — Validation Suite**
+- **60 pytest tests** covering document parsing edge cases (TXT/PDF/DOCX), mocked AI providers (no API calls), and generation route integration tests
+- Test infrastructure: `pyproject.toml` (pytest config), `backend/tests/` package, `backend/tests/fixtures/` (generated TXT + DOCX + PDF)
+- Run: `npm run test:backend`
+- Edge cases covered: UTF-8, latin-1 fallback, CJK chars, CRLF line endings, blank paragraphs, corrupt files, uppercase extensions, multi-dot filenames, AIProviderError → 502
+
+**5b — Windows Packaging**
+- **PyInstaller** (`backend.spec`): freezes Flask + all deps into `dist/backend/run_backend/run_backend.exe` (`--onedir` mode, `upx=False`)
+  - `collect_all()` for pdfminer (CMap data files), python-docx (default.docx template), google.genai (namespace package), anthropic
+  - `console=True` so Electron can capture stdout for readiness detection
+- **Electron main** (`src/main/index.ts`): spawns `run_backend.exe` in packaged mode; polls `/health` (20s timeout); IPC for settings + flask:restart
+- **Settings storage**: `userData/settings.json` — API keys never touch the renderer
+- **First-run modal** (`ApiKeySetup.tsx`): provider dropdown + password input; saves settings + restarts Flask
+- **Build output**: `release/Resume Buddy-0.1.0-win.zip` (portable) + `release/win-unpacked/` (direct launch)
+
 ---
 
-## 7. What Comes Next (Phase 4)
+## 7. Building for Windows
 
-Phase 4 is **User Experience & Features**. The full generation pipeline works end-to-end — Phase 4 focuses on polish, profile editing, and additional workflow tools.
+### Prerequisites
+- Python venv with all deps installed (including `pyinstaller` from `requirements-build.txt`)
+- Node deps installed (`npm install`)
 
-### 4a. Profile Management (Manual Edit)
+### Full build (one command)
 
-The current flow is one-way: upload resume → AI extracts profile → read-only preview.
-Phase 4 adds the ability to manually edit the extracted profile before generating documents.
+```bash
+npm run dist:win
+```
 
-**Approach — inline editable fields:**
+This runs:
+1. `npm run build` — compiles Electron + React to `out/`
+2. `npm run pyinstaller` — freezes Flask to `dist/backend/run_backend/`
+3. `npx electron-builder --win --x64` — bundles everything to `release/`
 
-Add an "Edit Profile" mode to `ProfileUpload.tsx` (or a dedicated `ProfileEditor.tsx` component):
-- Contact section: text inputs for name, email, phone, location, LinkedIn, GitHub
-- Work experience: editable company/title/dates, add/remove/reorder bullet points
-- Education: editable institution/degree/field/graduation date
-- Skills: tag input (add/remove individual skills)
-- Certifications, projects, languages, volunteer: add/remove list items
+### Step-by-step (useful for debugging)
 
-The edited `MasterProfile` object must be passed back up to `App.tsx` via the existing `onProfileExtracted` callback (or a new `onProfileUpdated` callback).
+```bash
+# 1. Build JS
+npm run build
 
-**Key consideration**: The current `App.tsx` state only stores the most recently extracted profile. If the user edits then re-uploads, the edits are lost. Phase 4 should ensure edits are preserved — either by keeping a separate `editedProfile` state alongside the raw extracted one, or by treating the profile as fully mutable from the moment it is extracted.
+# 2. Freeze Flask (takes ~3–5 minutes first time)
+.venv/Scripts/python -m PyInstaller backend.spec --distpath dist/backend --workpath dist/build_work --noconfirm
 
-**Suggested implementation order:**
-1. Add edit button to profile preview card in `ProfileUpload.tsx`
-2. Create `ProfileEditor.tsx` — renders all profile fields as inputs
-3. On save, fire `onProfileExtracted` with the edited profile
-4. Wire up in `App.tsx` — no new state needed, just re-use `setMasterProfile`
+# 3. Smoke test the frozen Flask (should print "[Flask] Frozen backend on http://127.0.0.1:5001")
+dist/backend/run_backend/run_backend.exe
+# Ctrl+C to stop
 
-### 4b. File Naming Convention (Already in Generation)
+# 4. Package with electron-builder
+npx electron-builder --win --x64
+```
 
-The naming convention `[Job Title] - Resume - Applied.docx` and `[Job Title] - Cover Letter - Applied.docx` is already implemented in `backend/api/generation.py` via the `_safe_filename()` helper. No further work needed here.
+### Output files
 
-### 4c. Template Selection (Visual Picker)
-
-Currently only one resume template exists (Harvard style). Phase 4 can add a template picker.
-
-**Approach:**
-- Define a `template: 'harvard' | 'modern' | 'minimal'` field in `ResumeGenerationOptions`
-- Add it to `schema.ts` and the backend `options` dict
-- Create `backend/api/templates/modern_builder.py` (or similar) following the same `build(profile, tailored, options) -> tuple[io.BytesIO, str]` interface
-- In `generation.py`, dispatch to the correct builder based on `options.get('template', 'harvard')`
-- In `Results.tsx`, add a template selector (radio group or visual cards) to the options panel
-
-### 4d. Application Helper UI
-
-**Salary Context Input:**
-- A simple form with fields: job title, location, years of experience, and a manual salary range entry
-- No external API — user manually enters the market rate range they have researched
-- Display as a reference card in the Results tab or as a separate sub-tab
-
-**Application Q&A:**
-- Text fields for common application questions: visa/work authorization status, "Why this company?", preferred start date
-- Store answers in component state; optionally pass to AI to incorporate into cover letter
-
-### 4e. Interview Prep Module
-
-Add a fourth tab: "Interview Prep"
-
-**Flow:**
-1. User clicks "Generate Interview Prep" (requires profile + job analysis — same prerequisites as Results)
-2. Calls a new endpoint `POST /generate-interview-prep`
-3. AI returns a structured set of likely interview questions with suggested talking-point answers based on the profile and job
-
-**New backend work needed:**
-- Add `generate_interview_prep(profile_dict, job_analysis_dict) -> dict` to `AIProvider` ABC
-- Implement in `gemini.py` with a prompt that returns:
-  ```json
-  {
-    "behavioural_questions": [{ "question": "...", "suggested_answer": "..." }],
-    "technical_questions": [{ "question": "...", "suggested_answer": "..." }],
-    "questions_to_ask": ["..."]
-  }
-  ```
-- Stub in `claude.py`
-- Add `POST /generate-interview-prep` to `generation.py`
-
-**New frontend work needed:**
-- Add `InterviewPrep.tsx` component
-- Add a fourth tab to `App.tsx` and `TABS` array
-- Display questions in expandable accordion cards
-
-### 4f. Implementation Order for Phase 4
-
-1. **Profile editor** — highest user value, needed before any downstream work on templates
-2. **Interview prep tab** — standalone new feature, no dependencies on profile editor
-3. **Template picker** — requires creating at least one additional DOCX builder
-4. **Application helper UI** — lower priority, can be done incrementally
-
-### Phase 4 Files to Create
-
-| File | Purpose |
+| File | Description |
 |---|---|
-| `src/renderer/src/components/ProfileEditor.tsx` | Inline editable profile form |
-| `src/renderer/src/components/InterviewPrep.tsx` | Interview questions display |
-| `backend/api/templates/modern_builder.py` | Second resume template (optional) |
+| `release/Resume Buddy-0.1.0-win.zip` | Portable ZIP — extract and run `Resume Buddy.exe` |
+| `release/win-unpacked/Resume Buddy.exe` | Unpacked build for direct launch / testing |
+| `release/builder-debug.yml` | electron-builder debug info |
 
-### Phase 4 Files to Modify
+### Known limitations (MVP)
 
-| File | Change |
-|---|---|
-| `src/renderer/src/App.tsx` | Add InterviewPrep tab + state |
-| `src/renderer/src/components/ProfileUpload.tsx` | Add edit mode / link to ProfileEditor |
-| `src/renderer/src/components/Results.tsx` | Add template selector, salary context |
-| `src/renderer/src/types/schema.ts` | Add `InterviewPrepResult`, extend `ResumeGenerationOptions` with `template` |
-| `src/renderer/src/api/client.ts` | Add `generateInterviewPrep()` |
-| `backend/api/ai/base.py` | Add `generate_interview_prep()` abstract method |
-| `backend/api/ai/gemini.py` | Implement `generate_interview_prep()` |
-| `backend/api/ai/claude.py` | Stub `generate_interview_prep()` |
-| `backend/api/generation.py` | Add `POST /generate-interview-prep` route |
-| `src/renderer/src/styles/components.css` | Add Phase 4 component styles |
+- **SmartScreen warning**: unsigned binary shows "Windows protected your PC" — click "More info" → "Run anyway". Expected for MVP.
+- **Port 5001 conflict**: if already bound, Flask fails and the app shows "Backend Offline". Post-MVP fix: dynamic port selection.
+- **Installer size**: ~150–250 MB (PyInstaller bundles Python + all deps). Expected for a Python-based desktop app.
+- **No macOS build**: `mac:` target removed from `electron-builder.yml` for this phase. Add back in Phase 5c.

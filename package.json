@@ -7,7 +7,10 @@
     "dev": "concurrently --kill-others --names \"FLASK,ELECTRON\" --prefix-colors \"cyan,magenta\" \".venv/Scripts/python -m backend.app\" \"electron-vite dev\"",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test:backend": ".venv/Scripts/python -m pytest",
+    "pyinstaller": ".venv/Scripts/python -m PyInstaller backend.spec --distpath dist/backend --workpath dist/build_work --noconfirm",
+    "dist:win": "npm run build && npm run pyinstaller && npx electron-builder --win --x64"
   },
   "dependencies": {
     "electron-updater": "^6.3.9"

@@ -1,6 +1,3 @@
-# electron-builder configuration — Phase 5 stub
-# Full packaging setup to be completed in Phase 5.
-
 appId: com.resumebuddy
 productName: Resume Buddy
 copyright: Copyright 2026
@@ -9,29 +6,37 @@ directories:
   buildResources: resources
   output: release
 
+# Electron JS compiled output only (no resources/ here — would conflict with extraResources)
 files:
   - out/**/*
-  - resources/**/*
 
-# NOTE: Python backend is NOT bundled in Phases 0-2.
-# In Phase 5, embed a PyInstaller-frozen Python executable
-# and spawn it from the Electron main process on startup.
+# Python backend frozen by PyInstaller (--onedir).
+# Run `npm run pyinstaller` before `npm run dist:win` to build this directory.
+# At runtime: process.resourcesPath + '/backend/run_backend/run_backend.exe'
+extraResources:
+  - from: dist/backend/run_backend
+    to: backend/run_backend
+    filter:
+      - '**/*'
 
 win:
   target:
-    - target: nsis
+    # zip: portable archive — works without Windows Developer Mode / admin privileges.
+    # To produce an NSIS installer instead, change to target: nsis (requires Developer Mode
+    # enabled on Windows, or run as Administrator, due to macOS symlinks in winCodeSign).
+    - target: zip
       arch: [x64]
-  icon: resources/icon.ico
+    # Keep the unpacked directory as a secondary output (useful for testing / direct launch)
+    - target: dir
+      arch: [x64]
+  # icon: resources/icon.ico  ← uncomment and add icon.ico to resources/ for a custom icon
 
-mac:
-  target:
-    - target: dmg
-      arch: [x64, arm64]
-  icon: resources/icon.icns
-  category: public.app-category.productivity
+# nsis config retained for future use (uncomment win.target: nsis above to activate)
+# nsis:
+#   oneClick: false
+#   allowToChangeInstallationDirectory: true
+#   createDesktopShortcut: true
+#   createStartMenuShortcut: true
 
-linux:
-  target:
-    - target: AppImage
-  icon: resources/icon.png
-  category: Office
+# macOS and Linux targets omitted for Phase 5 (Windows only).
+# Re-add mac: and linux: sections in Phase 5c.

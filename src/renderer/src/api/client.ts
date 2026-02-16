@@ -1,7 +1,8 @@
 import type {
   MasterProfile, JobAnalysis, ApiResult,
   ResumeGenerationOptions, CoverLetterGenerationOptions,
-  ResumeGenerationResult, CoverLetterGenerationResult
+  ResumeGenerationResult, CoverLetterGenerationResult,
+  InterviewPrepResult
 } from '../types/schema'
 
 const BASE_URL = 'http://localhost:5001'
@@ -88,6 +89,17 @@ export async function generateCoverLetter(
     profile: profile as unknown as Record<string, unknown>,
     job_analysis: jobAnalysis as unknown as Record<string, unknown>,
     options: options as unknown as Record<string, unknown>
+  })
+}
+
+/** Generate interview prep Q&A for the given profile and job */
+export async function generateInterviewPrep(
+  profile: MasterProfile,
+  jobAnalysis: JobAnalysis
+): Promise<ApiResult<InterviewPrepResult>> {
+  return post<InterviewPrepResult>('/generate-interview-prep', {
+    profile: profile as unknown as Record<string, unknown>,
+    job_analysis: jobAnalysis as unknown as Record<string, unknown>
   })
 }
 

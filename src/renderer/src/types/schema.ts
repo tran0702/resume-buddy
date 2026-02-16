@@ -98,6 +98,7 @@ export interface ResumeGenerationOptions {
   include_certifications: boolean
   include_volunteer: boolean
   max_pages: 1 | 2
+  template?: 'harvard' | 'modern'
 }
 
 export interface CoverLetterGenerationOptions {
@@ -117,6 +118,19 @@ export interface CoverLetterGenerationResult {
   docx_base64: string
   filename: string
   preview_text: string
+}
+
+// ------ Phase 4: Interview Prep ------
+
+export interface InterviewQA {
+  question: string
+  suggested_answer: string
+}
+
+export interface InterviewPrepResult {
+  behavioural_questions: InterviewQA[]
+  technical_questions: InterviewQA[]
+  questions_to_ask: string[]
 }
 
 // ------ API Response Wrappers ------

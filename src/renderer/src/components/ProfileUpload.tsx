@@ -1,18 +1,25 @@
 import React, { useState, useRef } from 'react'
 import { parseDocument, extractProfile } from '../api/client'
+import ProfileEditor from './ProfileEditor'
 import type { MasterProfile } from '../types/schema'
 
 type UploadState = 'idle' | 'parsing' | 'extracting' | 'done' | 'error'
 
 interface ProfileUploadProps {
   onProfileExtracted: (profile: MasterProfile) => void
+  currentProfile: MasterProfile | null
+  onProfileEdited: (profile: MasterProfile) => void
 }
 
-function ProfileUpload({ onProfileExtracted }: ProfileUploadProps): React.JSX.Element {
+function ProfileUpload({
+  onProfileExtracted,
+  currentProfile,
+  onProfileEdited
+}: ProfileUploadProps): React.JSX.Element {
   const [state, setState] = useState<UploadState>('idle')
-  const [profile, setProfile] = useState<MasterProfile | null>(null)
   const [rawText, setRawText] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>): Promise<void> {
@@ -20,8 +27,8 @@ function ProfileUpload({ onProfileExtracted }: ProfileUploadProps): React.JSX.El
     if (!file) return
 
     setError(null)
-    setProfile(null)
     setRawText(null)
+    setIsEditing(false)
     setState('parsing')
 
     // Step 1: Parse the document file to plain text
@@ -44,7 +51,6 @@ function ProfileUpload({ onProfileExtracted }: ProfileUploadProps): React.JSX.El
       return
     }
 
-    setProfile(profileResult.data)
     onProfileExtracted(profileResult.data)
     setState('done')
 
@@ -92,27 +98,46 @@ function ProfileUpload({ onProfileExtracted }: ProfileUploadProps): React.JSX.El
         </div>
       )}
 
-      {state === 'done' && profile && (
+      {state === 'done' && currentProfile && !isEditing && (
         <div className="profile-preview">
-          <h3 className="preview-title">{profile.contact.name}</h3>
-          {profile.contact.email && (
-            <p className="preview-email">{profile.contact.email}</p>
+          <div className="profile-preview-actions">
+            <h3 className="preview-title">{currentProfile.contact.name}</h3>
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={() => setIsEditing(true)}
+            >
+              Edit Profile
+            </button>
+          </div>
+          {currentProfile.contact.email && (
+            <p className="preview-email">{currentProfile.contact.email}</p>
           )}
           <div className="preview-stats">
-            <span>{profile.work_experience.length} position{profile.work_experience.length !== 1 ? 's' : ''}</span>
-            <span>{profile.education.length} degree{profile.education.length !== 1 ? 's' : ''}</span>
-            <span>{profile.skills.length} skill{profile.skills.length !== 1 ? 's' : ''}</span>
+            <span>
+              {currentProfile.work_experience.length} position
+              {currentProfile.work_experience.length !== 1 ? 's' : ''}
+            </span>
+            <span>
+              {currentProfile.education.length} degree
+              {currentProfile.education.length !== 1 ? 's' : ''}
+            </span>
+            <span>
+              {currentProfile.skills.length} skill
+              {currentProfile.skills.length !== 1 ? 's' : ''}
+            </span>
           </div>
 
-          {profile.skills.length > 0 && (
+          {currentProfile.skills.length > 0 && (
             <div className="keyword-section">
               <h4>Skills</h4>
               <div className="tag-list">
-                {profile.skills.slice(0, 20).map((skill) => (
+                {currentProfile.skills.slice(0, 20).map((skill) => (
                   <span key={skill} className="tag tag--preferred">{skill}</span>
                 ))}
-                {profile.skills.length > 20 && (
-                  <span className="tag tag--preferred">+{profile.skills.length - 20} more</span>
+                {currentProfile.skills.length > 20 && (
+                  <span className="tag tag--preferred">
+                    +{currentProfile.skills.length - 20} more
+                  </span>
                 )}
               </div>
             </div>
@@ -121,10 +146,23 @@ function ProfileUpload({ onProfileExtracted }: ProfileUploadProps): React.JSX.El
           {rawText && (
             <details className="raw-text-details">
               <summary>View extracted text</summary>
-              <pre className="raw-text">{rawText.slice(0, 800)}{rawText.length > 800 ? '...' : ''}</pre>
+              <pre className="raw-text">
+                {rawText.slice(0, 800)}{rawText.length > 800 ? '...' : ''}
+              </pre>
             </details>
           )}
         </div>
+      )}
+
+      {isEditing && currentProfile && (
+        <ProfileEditor
+          profile={currentProfile}
+          onSave={(edited) => {
+            onProfileEdited(edited)
+            setIsEditing(false)
+          }}
+          onCancel={() => setIsEditing(false)}
+        />
       )}
     </section>
   )

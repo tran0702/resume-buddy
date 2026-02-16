@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+# Run from project root: python -m pytest (or npm run test:backend)
+testpaths = ["backend/tests"]
+pythonpath = ["."]          # adds project root to sys.path so "from backend.api..." works
+addopts = "-v --tb=short"

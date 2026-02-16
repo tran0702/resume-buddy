@@ -84,6 +84,26 @@ class AIProvider(ABC):
         """
         ...
 
+    @abstractmethod
+    def generate_interview_prep(self, profile_dict: dict, job_analysis_dict: dict) -> dict:
+        """
+        Generate interview preparation Q&A for the given profile and job.
+
+        Args:
+            profile_dict: MasterProfile-shaped dict.
+            job_analysis_dict: JobAnalysis-shaped dict.
+
+        Returns:
+            A dict with keys:
+              "behavioural_questions": list of { "question": str, "suggested_answer": str }
+              "technical_questions":   list of { "question": str, "suggested_answer": str }
+              "questions_to_ask":      list of str
+
+        Raises:
+            AIProviderError: If the AI call fails.
+        """
+        ...
+
     @property
     @abstractmethod
     def provider_name(self) -> str:

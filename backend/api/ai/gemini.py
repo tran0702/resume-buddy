@@ -175,6 +175,45 @@ Rules:
 - Do not begin with "I am writing to" — use an engaging opening instead."""
 
 
+_INTERVIEW_PREP_PROMPT = """\
+You are a professional interview coach preparing a candidate for a job interview.
+Generate targeted interview questions and suggested answers based on the candidate's
+profile and the job they are applying for.
+
+Master Profile:
+{profile_json}
+
+Job Analysis:
+{job_analysis_json}
+
+Return a single JSON object following this schema exactly:
+{{
+  "behavioural_questions": [
+    {{
+      "question": "string — STAR-format behavioural question relevant to this role",
+      "suggested_answer": "string — 3-5 sentence STAR answer using the candidate's actual experience"
+    }}
+  ],
+  "technical_questions": [
+    {{
+      "question": "string — technical question testing required_skills for this role",
+      "suggested_answer": "string — concise correct answer, 2-4 sentences"
+    }}
+  ],
+  "questions_to_ask": [
+    "string — thoughtful question the candidate should ask the interviewer"
+  ]
+}}
+
+Rules:
+- Return ONLY valid JSON. No markdown, no explanation, no code fences.
+- behavioural_questions: exactly 5 questions using the candidate's real work history.
+- technical_questions: exactly 5 questions drawn from required_skills and key_responsibilities.
+- questions_to_ask: exactly 4 questions that show genuine interest in the role/company.
+- Do not invent experience or skills not present in the profile.
+- suggested_answer must reference specific companies, technologies, or achievements from the profile."""
+
+
 class GeminiProvider(AIProvider):
 
     def __init__(self, api_key: str, model: str = 'gemini-1.5-flash') -> None:
@@ -256,6 +295,15 @@ class GeminiProvider(AIProvider):
         logger.info('[GeminiProvider] Generating cover letter text...')
         import json as _json
         prompt = _COVER_LETTER_PROMPT.format(
+            profile_json=_json.dumps(profile_dict, indent=2),
+            job_analysis_json=_json.dumps(job_analysis_dict, indent=2)
+        )
+        return self._generate_json(prompt)
+
+    def generate_interview_prep(self, profile_dict: dict, job_analysis_dict: dict) -> dict:
+        logger.info('[GeminiProvider] Generating interview prep...')
+        import json as _json
+        prompt = _INTERVIEW_PREP_PROMPT.format(
             profile_json=_json.dumps(profile_dict, indent=2),
             job_analysis_json=_json.dumps(job_analysis_dict, indent=2)
         )
