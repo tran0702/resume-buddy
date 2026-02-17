@@ -12,7 +12,9 @@ Harvard style conventions used:
 - Bullets: 10.5pt, hanging indent, solid square bullet character
 - Body text: 10.5pt
 """
+import copy
 import io
+import math
 from datetime import datetime
 from typing import Optional
 
@@ -21,6 +23,12 @@ from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+
+# ---- Page-limit constants ---------------------------------------------------
+# Letter paper, 1-inch margins → 6.5" × 9" printable area.
+# 10.5pt font with ~14pt leading → ~46 body lines per page.
+_LINES_PER_PAGE = 46
+_CHARS_PER_LINE = 90   # approx chars that fit in 6.5" at 10.5pt
 
 
 # ---- Helpers ----------------------------------------------------------------
@@ -183,6 +191,156 @@ def _build_preview(profile: dict, tailored: dict) -> str:
     return '\n'.join(lines)
 
 
+# ---- Page-limit helpers -----------------------------------------------------
+
+def _text_lines(text: str) -> float:
+    """Estimate how many 10.5pt body lines a text string occupies (word-wrap)."""
+    return max(1.0, math.ceil(len(text) / _CHARS_PER_LINE))
+
+
+def _estimate_doc_lines(profile: dict, bullet_map: dict, options: dict) -> float:
+    """
+    Estimate the total line count of the rendered document.
+    Uses fixed overheads per element type to account for font size and spacing.
+    """
+    lines = 0.0
+
+    # Name (18pt ≈ 1.7× line height) + contact + trailing gap
+    lines += 2.5   # name
+    contact = profile.get('contact', {})
+    contact_parts = [p for p in [
+        contact.get('email'), contact.get('phone'),
+        contact.get('location'), contact.get('linkedin')
+    ] if p]
+    if contact_parts:
+        lines += 1.5   # contact line + gap
+
+    # Summary
+    if profile.get('summary'):
+        lines += 2.5   # header
+        lines += _text_lines(profile['summary']) + 0.5
+
+    # Work experience
+    work_exp = profile.get('work_experience', [])
+    if work_exp:
+        lines += 2.5   # section header
+        for exp in work_exp:
+            lines += 1.5   # employer row
+            lines += 1.0   # title line
+            key = f"{exp.get('company', '')}|{exp.get('title', '')}"
+            bullets = bullet_map.get(key, exp.get('bullets', []))
+            for b in bullets:
+                lines += _text_lines(b) + 0.25
+            lines += 0.5   # gap after entry
+
+    # Education
+    education = profile.get('education', [])
+    if education:
+        lines += 2.5   # section header
+        for edu in education:
+            lines += 1.5   # institution row
+            lines += 1.0   # degree line
+            for honor in edu.get('honors', []):
+                lines += _text_lines(honor) + 0.25
+            lines += 0.5
+
+    # Skills
+    if options.get('include_skills', True) and profile.get('skills'):
+        lines += 2.5
+        lines += _text_lines(', '.join(profile['skills'])) + 0.5
+
+    # Projects
+    if options.get('include_projects', False) and profile.get('projects'):
+        lines += 2.5
+        for proj in profile.get('projects', []):
+            lines += 1.5
+            if proj.get('description'):
+                lines += _text_lines(proj['description']) + 0.25
+            for b in proj.get('bullets', []):
+                lines += _text_lines(b) + 0.25
+            if proj.get('technologies'):
+                lines += 1.0
+            lines += 0.5
+
+    # Certifications
+    if options.get('include_certifications', True) and profile.get('certifications'):
+        lines += 2.5
+        for cert in profile['certifications']:
+            lines += _text_lines(cert) + 0.25
+
+    # Volunteer
+    if options.get('include_volunteer', False) and profile.get('volunteer'):
+        lines += 2.5
+        for vol in profile['volunteer']:
+            lines += _text_lines(vol) + 0.25
+
+    # Languages
+    if profile.get('languages'):
+        lines += 2.5
+        lines += _text_lines(', '.join(profile['languages'])) + 0.5
+
+    return lines
+
+
+def _trim_to_page_limit(
+    profile: dict, tailored: dict, options: dict, max_pages: int
+) -> tuple[dict, dict]:
+    """
+    Trim content so the resume fits within max_pages.
+
+    Strategy (in order):
+      1. Reduce bullets per job: 5 → 4 → 3 → 2 → 1
+      2. Remove oldest work-experience entries (keep most recent)
+
+    Works on deep copies; does not mutate the originals.
+    """
+    profile = copy.deepcopy(profile)
+    tailored = copy.deepcopy(tailored)
+
+    line_budget = max_pages * _LINES_PER_PAGE
+
+    # Build a mutable bullet_map (company|title → list[str])
+    bullet_map: dict[str, list[str]] = {}
+    for te in tailored.get('tailored_experience', []):
+        key = f"{te.get('company', '')}|{te.get('title', '')}"
+        bullet_map[key] = te.get('tailored_bullets', [])
+
+    def _sync_tailored() -> None:
+        """Push bullet_map back into tailored['tailored_experience']."""
+        for te in tailored.get('tailored_experience', []):
+            key = f"{te.get('company', '')}|{te.get('title', '')}"
+            if key in bullet_map:
+                te['tailored_bullets'] = bullet_map[key]
+
+    # Step 1: progressively reduce bullets per job
+    for max_b in (5, 4, 3, 2, 1):
+        if _estimate_doc_lines(profile, bullet_map, options) <= line_budget:
+            break
+        for exp in profile.get('work_experience', []):
+            key = f"{exp.get('company', '')}|{exp.get('title', '')}"
+            if key in bullet_map:
+                bullet_map[key] = bullet_map[key][:max_b]
+            else:
+                exp['bullets'] = exp.get('bullets', [])[:max_b]
+
+    _sync_tailored()
+
+    # Step 2: drop oldest work-experience entries one at a time
+    while (
+        _estimate_doc_lines(profile, bullet_map, options) > line_budget
+        and len(profile.get('work_experience', [])) > 1
+    ):
+        removed = profile['work_experience'].pop()
+        removed_key = f"{removed.get('company', '')}|{removed.get('title', '')}"
+        bullet_map.pop(removed_key, None)
+        tailored['tailored_experience'] = [
+            te for te in tailored.get('tailored_experience', [])
+            if f"{te.get('company', '')}|{te.get('title', '')}" != removed_key
+        ]
+
+    return profile, tailored
+
+
 # ---- Main builder -----------------------------------------------------------
 
 def build(
@@ -208,6 +366,10 @@ def build(
     Returns:
         (BytesIO DOCX bytes, preview_text string)
     """
+    # Enforce page limit by trimming content before building the document
+    max_pages = options.get('max_pages', 2)
+    profile, tailored = _trim_to_page_limit(profile, tailored, options, max_pages)
+
     doc = Document()
     _set_margins(doc)
 
@@ -299,6 +461,8 @@ def build(
             _add_employer_row(doc, name_line, '')
             if proj.get('description'):
                 _add_body_para(doc, proj['description'])
+            for b in proj.get('bullets', []):
+                _add_bullet(doc, b)
             if proj.get('technologies'):
                 _add_body_para(doc, 'Technologies: ' + ', '.join(proj['technologies']))
 
@@ -319,19 +483,7 @@ def build(
         _add_section_header(doc, 'Languages')
         _add_body_para(doc, ', '.join(profile['languages']))
 
-    # --- Page limit heuristic ---
-    # Approximate character count; DOCX pagination cannot be enforced programmatically
-    char_count = sum(len(p.text) for p in doc.paragraphs)
-    if options.get('max_pages', 2) == 1 and char_count > 3000:
-        tailored.setdefault('tailoring_notes', []).append(
-            f'Warning: estimated content (~{char_count} chars) may exceed 1 page. '
-            'Consider removing optional sections (Projects, Volunteer) or shortening bullets.'
-        )
-    elif char_count > 5500:
-        tailored.setdefault('tailoring_notes', []).append(
-            f'Warning: estimated content (~{char_count} chars) may exceed 2 pages. '
-            'Consider shortening bullets or removing optional sections.'
-        )
+
 
     # --- Write to BytesIO ---
     buf = io.BytesIO()

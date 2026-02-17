@@ -17,7 +17,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   aiProvider: 'gemini',
   geminiApiKey: '',
   anthropicApiKey: '',
-  geminiModel: 'gemini-1.5-flash',
+  geminiModel: 'gemini-2.5-flash-lite',
   anthropicModel: 'claude-opus-4-5-20250929'
 }
 

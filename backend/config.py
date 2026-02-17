@@ -16,7 +16,7 @@ class Config:
 
     # Google Gemini
     GEMINI_API_KEY: str = os.environ.get('GEMINI_API_KEY', '')
-    GEMINI_MODEL: str = os.environ.get('GEMINI_MODEL', 'gemini-1.5-flash')
+    GEMINI_MODEL: str = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash-lite')
 
     # Anthropic Claude
     ANTHROPIC_API_KEY: str = os.environ.get('ANTHROPIC_API_KEY', '')

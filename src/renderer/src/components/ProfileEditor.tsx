@@ -215,8 +215,37 @@ function ProfileEditor({ profile, onSave, onCancel }: ProfileEditorProps): React
     })
   }
 
+  function addProjectBullet(projIndex: number): void {
+    setDraft((prev) => {
+      const projs = [...(prev.projects ?? [])]
+      projs[projIndex] = { ...projs[projIndex], bullets: [...(projs[projIndex].bullets ?? []), ''] }
+      return { ...prev, projects: projs }
+    })
+  }
+
+  function updateProjectBullet(projIndex: number, bulletIndex: number, value: string): void {
+    setDraft((prev) => {
+      const projs = [...(prev.projects ?? [])]
+      const bullets = [...(projs[projIndex].bullets ?? [])]
+      bullets[bulletIndex] = value
+      projs[projIndex] = { ...projs[projIndex], bullets }
+      return { ...prev, projects: projs }
+    })
+  }
+
+  function removeProjectBullet(projIndex: number, bulletIndex: number): void {
+    setDraft((prev) => {
+      const projs = [...(prev.projects ?? [])]
+      projs[projIndex] = {
+        ...projs[projIndex],
+        bullets: (projs[projIndex].bullets ?? []).filter((_, i) => i !== bulletIndex)
+      }
+      return { ...prev, projects: projs }
+    })
+  }
+
   function addProject(): void {
-    const blank: Project = { name: '', description: '', technologies: [], url: null }
+    const blank: Project = { name: '', description: '', bullets: [], technologies: [], url: null }
     setDraft((prev) => ({ ...prev, projects: [...(prev.projects ?? []), blank] }))
   }
 
@@ -587,6 +616,26 @@ function ProfileEditor({ profile, onSave, onCancel }: ProfileEditorProps): React
                     onChange={(e) => updateProject(pi, 'url', e.target.value || null)}
                   />
                 </div>
+              </div>
+              <div className="editor-bullets">
+                <label className="editor-label">Bullets</label>
+                {(proj.bullets ?? []).map((b, bi) => (
+                  <div key={bi} className="editor-bullet-row">
+                    <input
+                      className="editor-input editor-input--bullet"
+                      value={b}
+                      onChange={(e) => updateProjectBullet(pi, bi, e.target.value)}
+                    />
+                    <button
+                      className="btn--icon btn--icon-danger"
+                      onClick={() => removeProjectBullet(pi, bi)}
+                      title="Remove bullet"
+                    >×</button>
+                  </div>
+                ))}
+                <button className="btn btn--secondary btn--sm" onClick={() => addProjectBullet(pi)}>
+                  + Add Bullet
+                </button>
               </div>
             </div>
           ))}

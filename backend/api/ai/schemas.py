@@ -48,6 +48,7 @@ class Education:
 class Project:
     name: str
     description: str
+    bullets: list[str] = field(default_factory=list)
     technologies: list[str] = field(default_factory=list)
     url: Optional[str] = None
 

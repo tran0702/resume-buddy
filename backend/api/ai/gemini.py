@@ -61,6 +61,7 @@ and return it as a single JSON object that strictly follows this schema:
     {{
       "name": "string",
       "description": "string",
+      "bullets": ["string", ...],
       "technologies": ["string", ...],
       "url": "string or null"
     }}
@@ -73,6 +74,7 @@ Rules:
 - Return ONLY valid JSON. No markdown, no explanation, no code fences.
 - Use null for optional fields with no data; use [] for optional arrays with no data.
 - Do not invent information not present in the resume.
+- For projects: capture every responsibility, achievement, and task as individual items in "bullets" (same as work_experience bullets). Only put a brief one-line summary in "description". List tech stack items in "technologies" — do NOT duplicate them as skills unless they also appear in a dedicated skills section.
 
 Resume text:
 ---
@@ -244,7 +246,7 @@ class GeminiProvider(AIProvider):
                 config=genai_types.GenerateContentConfig(
                     response_mime_type='application/json',
                     temperature=0.1,          # low temp for deterministic structured output
-                    max_output_tokens=8192,
+                    max_output_tokens=16384,
                 )
             )
             raw_text = response.text or ''

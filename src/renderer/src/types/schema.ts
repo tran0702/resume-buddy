@@ -38,6 +38,7 @@ export interface Education {
 export interface Project {
   name: string
   description: string
+  bullets?: string[]
   technologies: string[]
   url?: string | null
 }

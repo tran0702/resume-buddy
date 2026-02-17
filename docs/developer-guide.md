@@ -166,7 +166,7 @@ The Electron window opens automatically. The status pill in the header shows **"
 |---|---|---|
 | `AI_PROVIDER` | `gemini` | Active AI provider: `gemini` or `claude` |
 | `GEMINI_API_KEY` | *(required)* | Your Google Gemini API key |
-| `GEMINI_MODEL` | `gemini-1.5-flash` | Model name — can use `gemini-2.0-flash` etc. |
+| `GEMINI_MODEL` | `gemini-2.5-flash-lite` | Model name — see [Gemini models](https://ai.google.dev/gemini-api/docs/models) for available IDs |
 | `ANTHROPIC_API_KEY` | *(optional)* | Anthropic key — only needed if `AI_PROVIDER=claude` |
 | `ANTHROPIC_MODEL` | `claude-opus-4-5-20250929` | Claude model name |
 | `FLASK_PORT` | `5001` | Flask port |
